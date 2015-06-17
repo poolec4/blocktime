@@ -1,0 +1,32 @@
+{    
+  "appKeys": 
+  {
+    "KEY_TEMPERATURE": 0,
+    "KEY_CONDITIONS": 1,
+    "KEY_LOCATION": 2,
+    "background_color": 3,
+    "font_color": 4,
+    "vibrate": 5,
+    "unit": 6,
+    "location": 7,
+    "zip_code": 8
+    },
+    "capabilities": 
+    [
+    "location",
+    "configurable"
+    ],
+    "uuid": "965986b6-5cd6-471e-b726-adf0b2434a4c",
+    "companyName": "CDev",
+    "shortName": "Block Time",
+    "longName": "Block Time",
+    "versionLabel": "1.0",
+    "sdkVersion": "3",
+    "targetPlatforms": ["basalt"],
+    "watchapp": {
+      "watchface": true
+      },
+      "resources": {
+        "media": []
+      }
+    }

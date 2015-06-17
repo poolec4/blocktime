@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Block Time - Settings</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.1/jquery.mobile-1.4.1.min.css">
+  <script src="http://code.jquery.com/jquery-2.1.0.min.js"></script>
+  <script src="http://code.jquery.com/mobile/1.4.1/jquery.mobile-1.4.1.min.js"></script>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <script src='script.js'></script>
+
+  <style>
+  .ui-header .ui-title 
+  { 
+    margin-left: 1em;
+    margin-right: 1em;
+    text-overflow: clip;
+  }
+  .color-box
+  {
+    width: 12vw;
+    height: 12vw;
+    border-style: none;
+    margin: 1.5vw;
+    display:inline-block;
+  }
+  .selected-color-box
+  {
+    border-width: 1.5vw;
+    border-style: solid;
+    border-color: black;
+    margin: 0px;
+  }
+  .color-row
+  {
+    border-style: none;
+    border-width: 0px;
+  }
+  .hidden
+  {
+    display: none;
+  }
+  </style>
+
+</head>
+<body>
+  <div data-role="page" id="main">
+    <div data-role="header" class="jqm-header">
+      <h1>Block Time</h1>
+    </div>
+    <div data-role="content">
+
+      <div data-role="collapsible-set" data-theme="c" data-content-theme="d" data-mini="false">
+
+       <div data-role="collapsible">
+        <h3>Look & Feel</h3>
+        <fieldset data-role="controlgroup" data-type="vertical" data-mini="true">
+          <h2>Color options coming soon!</h2>
+
+          <fieldset data-role="controlgroup" data-type="vertical" data-mini="true">
+            
+            <legend>Hourly Vibrate</legend> 
+            <input name="key2" id="key2-0"
+            data-type="int"
+            value="0"
+            type="radio">
+            <label for="key2-2">Off</label> 
+
+            <input name="key2" id="key2-1"
+            data-type="int"
+            value="1"
+            checked="checked"
+            type="radio">
+            <label for="key2-0">Short</label>
+
+            <input name="key2" id="key2-2"
+            data-type="int"
+            value="2"
+            type="radio">
+            <label for="key2-1">Long</label> 
+
+          </fieldset>
+
+        </div>
+
+        <div data-role="collapsible">
+          <h3>Weather</h3>
+          <fieldset data-role="controlgroup" data-type="vertical" data-mini="true">
+            <legend>Temperaure Units</legend> 
+
+            <input name="key3" id="key3-0"
+            data-type="int"
+            value="0"
+            checked="checked"
+            type="radio">
+            <label for="key3-0">Celsius</label>
+
+            <input name="key3" id="key3-1"
+            data-type="int"
+            value="1"
+            type="radio">
+            <label for="key3-1">Fahrenheit</label> 
+
+          </fieldset>
+          <fieldset data-role="controlgroup" data-type="vertical" data-mini="true">
+            <legend>Weather Location</legend> 
+
+            <input name="key4" id="key4-0"
+            data-type="int"
+            value="0"
+            checked="checked"
+            type="radio">
+            <label for="key4-0">Current Location</label>
+
+            <input name="key4" id="key4-1"
+            data-type="int"
+            value="1"
+            type="radio">
+            <label for="key4-1">Manual</label> 
+          </fieldset>
+
+          <fieldset data-role="controlgroup" data-type="vertical" data-mini="true">
+            <legend>Manual Location (Zip Code)</legend> 
+
+            <input name="key5" id="key5-0"
+            type="text">
+            <label for="key5-0">Zip Code:</label>
+          </fieldset>
+
+        </div>
+        <br />
+        <div class="ui-body ui-body-c">
+          <fieldset class="ui-grid-a">
+            <div class="ui-block-a"><button type="submit" data-theme="d" id="b-cancel">Cancel</button></div>
+            <div class="ui-block-b"><button type="submit" data-theme="a" id="b-submit">Save</button></div>
+          </fieldset>
+        </div>
+      </div>
+
+    </div>
+
+    <script>
+    function saveOptions() {
+      var options = {
+        'background_color': Number( $("input[name=key0]:checked").val() ),
+        'font_color':       Number( $("input[name=key1]:checked").val() ),
+        'vibrate':          Number( $("input[name=key2]:checked").val() ),
+        'unit':             Number( $("input[name=key3]:checked").val() ),
+        'location':         Number( $("input[name=key4]:checked").val() ),
+        'zip_code':         Number( $("input[name=key5]").val() )
+      }
+      return options;
+    }
+    $().ready(function() {
+     if (typeof window.localStorage !== "undefined") {
+      console.log("Not undefined :)");
+      if (window.localStorage.tutorial) {
+        ls_pto = JSON.parse(window.localStorage.tutorial);
+          // the Pebble webview dies on the next line...
+          $("input[name=key0][id=key0-"+ls_pto["background_color"]+"]");
+
+          $("input[name=key1][id=key1-"+ls_pto["font_color"]+"]");
+
+          $("input[name=key2][id=key2-"+ls_pto["vibrate"]+"]").prop('checked',true);
+          $("input[name=key2]").checkboxradio('refresh');
+
+          $("input[name=key3][id=key3-"+ls_pto["unit"]+"]").prop('checked',true);
+          $("input[name=key3]").checkboxradio('refresh');
+
+          $("input[name=key4][id=key4-"+ls_pto["location"]+"]").prop('checked',true);
+          $("input[name=key4]").checkboxradio('refresh');
+          
+          $("input[name=key5][id=key5-"+ls_pto["zip"]+"]");
+        }
+      }
+      $("#b-cancel").click(function() {
+        console.log("Cancel");
+        document.location = "pebblejs://close";
+      });
+      $("#b-submit").click(function() {
+        console.log("Submit");
+        ls_pto = JSON.stringify(saveOptions());
+        if (typeof window.localStorage !== "undefined") {
+          window.localStorage.tutorial = ls_pto;
+        }
+        var location = "pebblejs://close#" + ls_pto;
+        console.log("Warping to: " + location);
+        console.log(location);
+        document.location = location;
+      });
+    });
+  </script> </div>
+</body>
+</html>
