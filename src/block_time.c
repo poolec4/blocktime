@@ -213,8 +213,8 @@ unsigned int HexStringToUInt(char const* hexstring)
 }
 
 int numbers_to_print[4] = {0,0,0,0};
-int x_start[4] = {0, 83, 0, 83};
-int y_start[4] = {0, 0, 96, 96};
+int x_start[4] = {2, 83, 2, 83};
+int y_start[4] = {2, 2, 97, 97};
 
 static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
 {
@@ -284,6 +284,11 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
       }
     }
   }
+
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, GRect(67, 0, 10, 76), 0, GCornersAll);
+  graphics_fill_rect(ctx, GRect(67, 91, 10, 77), 0, GCornersAll);
+  graphics_fill_rect(ctx, GRect(66, 77, 14, 14), 1, GCornersAll);  
 
   graphics_context_set_fill_color(ctx, GColorRed);
   graphics_fill_rect(ctx, GRect(69, 0, 6, 25), 0, GCornersAll);
@@ -548,6 +553,13 @@ static void inbox_dropped_callback(AppMessageResult reason, void *context)
 static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context)
 {
   APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed");
+
+  DictionaryIterator *iter;
+  app_message_outbox_begin(&iter);
+
+  dict_write_uint8(iter,0,0);
+
+  app_message_outbox_send();
 }
 
 static void outbox_sent_callback(DictionaryIterator *iterator, void *context)

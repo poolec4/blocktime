@@ -89,11 +89,19 @@ console.log("URL:" + url);
 function locationError(err){
   console.log("Error reuesting location.");
 
-
   var url; 
 
+ if (location_status == 0 || zip_code === 'undefined' || zip_code == 0)
+ {
+   url = "http://api.openweathermap.org/data/2.5/weather?lat=" +
+   pos.coords.latitude + "&lon=" + pos.coords.longitude;
+   console.log("Latitude: " + pos.coords.latitude);
+   console.log("Longitude: " + pos.coords.longitude); 
+ }
+ else
+ {
   url = "http://api.openweathermap.org/data/2.5/weather?q=" + zip_code;
-
+}  
   console.log("URL:" + url);
 
   // Send request to OpenWeatherMap
