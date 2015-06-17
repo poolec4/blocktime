@@ -1,6 +1,7 @@
 #include <pebble.h>
 #include <ctype.h>
 
+//test change
 /*
 #define BACKGROUND_COLOR GColorBlack
 #define TIME_COLOR GColorWhite
