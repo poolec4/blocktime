@@ -8,7 +8,7 @@
 #define TEXT_COLOR GColorWhite
 */
 
-char background_color_hex_char[10] = "000000";
+char background_color_hex_char[10] = "000000"; 
 char font_color_hex_char[10] = "FFFFFF";
 
 int vibrate_status = 2;
@@ -288,7 +288,7 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
   graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_rect(ctx, GRect(67, 0, 10, 76), 0, GCornersAll);
   graphics_fill_rect(ctx, GRect(67, 91, 10, 77), 0, GCornersAll);
-  graphics_fill_rect(ctx, GRect(66, 77, 14, 14), 1, GCornersAll);  
+  //graphics_fill_rect(ctx, GRect(66, 77, 14, 14), 1, GCornersAll);  
 
   graphics_context_set_fill_color(ctx, GColorRed);
   graphics_fill_rect(ctx, GRect(69, 0, 6, 25), 0, GCornersAll);
@@ -359,16 +359,6 @@ static void update_time()
   if(canvas_layer)
     layer_mark_dirty(canvas_layer);
   
-  if(tick_time->tm_min % 30 == 0) 
-  {
-    DictionaryIterator *iter;
-    app_message_outbox_begin(&iter);
-
-    dict_write_uint8(iter,0,0);
-
-    app_message_outbox_send();
-  }
-
   if(tick_time->tm_min % 60 == 0)
   {
     switch (vibrate_status)
@@ -445,6 +435,17 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed)
   {
     update_time();
   }
+
+    if(tick_time->tm_min % 30 == 0) 
+  {
+    DictionaryIterator *iter;
+    app_message_outbox_begin(&iter);
+
+    dict_write_uint8(iter,0,0);
+
+    app_message_outbox_send();
+  }
+
 }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context)
