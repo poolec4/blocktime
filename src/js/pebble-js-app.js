@@ -79,6 +79,7 @@ console.log("URL:" + url);
         },
         function(e) {
           console.log("Error sending weather info to Pebble!");
+          getWeather();
         }
         );
     }      
