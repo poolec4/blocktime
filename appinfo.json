@@ -10,7 +10,9 @@
     "unit": 6,
     "location": 7,
     "zip_code": 8,
-    "middle_outline": 9
+    "middle_outline": 9,
+    "latitude": 10,
+    "longitude": 11
     },
     "capabilities": 
     [
@@ -21,7 +23,7 @@
     "companyName": "CDev",
     "shortName": "Block Time",
     "longName": "Block Time",
-    "versionLabel": "1.2",
+    "versionLabel": "1.3",
     "sdkVersion": "3",
     "targetPlatforms": ["basalt"],
     "watchapp": {

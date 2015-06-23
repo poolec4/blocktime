@@ -1,6 +1,8 @@
 var temp_units;
 var location_status;
 var zip_code;
+var latitude;
+var longitude;
 
 var xhrRequest = function (url, type, callback) {
   var xhr = new XMLHttpRequest();
@@ -15,23 +17,32 @@ function locationSuccess(pos) {
   // Construct URL
 
   var url; 
-
+  latitude = latitude.replace(/"/g, '');
+  longitude = longitude.replace(/"/g, '');
+  
 // Test location
  //url = "http://api.openweathermap.org/data/2.5/weather?q=albany,usa";
 
  //real location 
-
- if (location_status == 0 || zip_code == 'undefined' || zip_code == 0)
+ if (location_status == 1 && zip_code != 'undefined' && zip_code != 0)
  {
-   url = "http://api.openweathermap.org/data/2.5/weather?lat=" +
-   pos.coords.latitude + "&lon=" + pos.coords.longitude;
-   console.log("Latitude: " + pos.coords.latitude);
-   console.log("Longitude: " + pos.coords.longitude); 
- }
- else
- {
+  console.log("Based on custom zip");
   url = "http://api.openweathermap.org/data/2.5/weather?q=" + zip_code;
-}  
+}
+else if (location_status == 2 && latitude != 'undefined' && latitude != 0 && longitude != 'undefined' && longitude != 0)
+{  
+  console.log("Based on custom lat/long");
+  url = "http://api.openweathermap.org/data/2.5/weather?lat=" +
+  latitude + "&lon=" + longitude;
+}
+else
+{
+  console.log("Based on current location");
+  url = "http://api.openweathermap.org/data/2.5/weather?lat=" +
+  pos.coords.latitude + "&lon=" + pos.coords.longitude;
+  console.log("Latitude: " + pos.coords.latitude);
+  console.log("Longitude: " + pos.coords.longitude); 
+}
 
 console.log("URL:" + url);
 
@@ -117,11 +128,14 @@ Pebble.addEventListener("webviewclosed", function(e){
     var json = JSON.parse(e.response);
 
     temp_units = json.unit;
-    location_status = json.location_option;
+    location_status = json.location;
     zip_code = json.zip_code;
-
-    console.log("Temperature units = " + temp_units);
+    latitude = json.latitude;
+    longitude = json.longitude;
     
+    //console.log("Latitude: " + latitude);
+    //console.log("Longitude: " + longitude);
+
     getWeather();
 
     Pebble.sendAppMessage(values,
@@ -154,5 +168,7 @@ Pebble.addEventListener('appmessage',
     temp_units = JSON.stringify(e.payload["unit"]);
     location_status = JSON.stringify(e.payload["location"]);
     zip_code = JSON.stringify(e.payload["zip_code"]);
+    latitude = JSON.stringify(e.payload["latitude"]);
+    longitude = JSON.stringify(e.payload["longitude"]);
   }
   );
