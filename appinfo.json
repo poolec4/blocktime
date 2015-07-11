@@ -12,7 +12,10 @@
     "zip_code": 8,
     "middle_outline": 9,
     "latitude": 10,
-    "longitude": 11
+    "longitude": 11,
+    "update_interval": 12,
+    "sleep_start": 13,
+    "sleep_end": 14
     },
     "capabilities": 
     [

@@ -15,6 +15,7 @@ var xhrRequest = function (url, type, callback) {
 
 function locationSuccess(pos) {
   // Construct URL
+  console.log(" ** getWeather **");
 
   var url; 
   latitude = latitude.replace(/"/g, '');
@@ -27,7 +28,7 @@ function locationSuccess(pos) {
  if (location_status == 1 && zip_code != 'undefined' && zip_code != 0)
  {
   console.log("Based on custom zip");
-  url = "http://api.openweathermap.org/data/2.5/weather?q=" + zip_code;
+  url = "http://api.openweathermap.org/data/2.5/weather?zip=" + zip_code + ",us";
 }
 else if (location_status == 2 && latitude != 'undefined' && latitude != 0 && longitude != 'undefined' && longitude != 0)
 {  
@@ -112,8 +113,89 @@ function getWeather(){
     );
 }
 
+function getWeather_no_pos(){
+  // Construct URL
+  console.log(" ** getWeather_no_pos **");
+
+  var url; 
+  latitude = latitude.replace(/"/g, '');
+  longitude = longitude.replace(/"/g, '');
+  
+// Test location
+ //url = "http://api.openweathermap.org/data/2.5/weather?q=albany,usa";
+
+ //real location 
+ if (location_status == 1 && zip_code != 'undefined' && zip_code != 0)
+ {
+  console.log("Based on custom zip");
+  url = "http://api.openweathermap.org/data/2.5/weather?zip=" + zip_code + ",us";
+}
+else if (location_status == 2 && latitude != 'undefined' && latitude != 0 && longitude != 'undefined' && longitude != 0)
+{  
+  console.log("Based on custom lat/long");
+  url = "http://api.openweathermap.org/data/2.5/weather?lat=" +
+  latitude + "&lon=" + longitude;
+}
+else
+{
+  getWeather();
+}
+
+console.log("URL:" + url);
+
+  // Send request to OpenWeatherMap
+  xhrRequest(url, 'GET', 
+    function(responseText) {
+      // responseText contains a JSON object with weather info
+      var json = JSON.parse(responseText);
+
+      var temperature;
+      
+      console.log("Temp_units " + temp_units);
+
+      if (temp_units == 0)
+      {
+        temperature = Math.round(json.main.temp - 273.15);
+      }
+      else
+      {
+        temperature = Math.round((json.main.temp - 273.15) * 1.8 + 32);
+      }
+      
+      console.log("Temperature is " + temperature);
+
+      // Conditions
+      var conditions = json.weather[0].main;      
+      console.log("Conditions are " + conditions);
+      
+      // Location
+      var location = json.name;      
+      console.log("Location is " + location);
+
+      
+      // Assemble dictionary using our keys
+      var dictionary = {
+        "KEY_TEMPERATURE": temperature,
+        "KEY_CONDITIONS": conditions,
+        "KEY_LOCATION": location
+      };
+
+      // Send to Pebble
+      Pebble.sendAppMessage(dictionary,
+        function(e) {
+          console.log("Weather info sent to Pebble successfully!");
+        },
+        function(e) {
+          console.log("Error sending weather info to Pebble!");
+          getWeather();
+        }
+        );
+    }      
+    );
+}
+
 Pebble.addEventListener("showConfiguration", function(e) {
-  Pebble.openURL('http://cobweb.seas.gwu.edu/~poolec/block_time/block_time_settings_page_w_color.html');
+  Pebble.openURL('http://cobweb.seas.gwu.edu/~poolec/block_time/block_time_settings_page_to_test');
 });
 
 Pebble.addEventListener("webviewclosed", function(e){
@@ -159,8 +241,7 @@ Pebble.addEventListener('ready',
 //listen for when a message is received from the app
 Pebble.addEventListener('appmessage',
   function(e) {
-    getWeather();
-    
+
     console.log("AppMessage received!");
 
     console.log('Received appmessage: ' + JSON.stringify(e.payload));
@@ -170,5 +251,18 @@ Pebble.addEventListener('appmessage',
     zip_code = JSON.stringify(e.payload["zip_code"]);
     latitude = JSON.stringify(e.payload["latitude"]);
     longitude = JSON.stringify(e.payload["longitude"]);
+
+    if (location_status == 1)
+    {
+      getWeather_no_pos();
+    }
+    else if (location_status == 2)
+    {  
+      getWeather_no_pos();
+    }
+    else
+    {
+      getWeather();
+    }
   }
   );

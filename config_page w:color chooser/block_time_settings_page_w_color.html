@@ -1418,6 +1418,24 @@
             <div data-role="collapsible">
               <h3>Weather</h3>
               <fieldset data-role="controlgroup" data-type="vertical" data-mini="true">
+                <legend>Update Interval</legend> 
+
+                <input name="key9" id="key9-0"
+                data-type="int"
+                value="30"
+                checked="checked"
+                type="radio">
+                <label for="key9-0">30 minutes</label>
+
+                <input name="key9" id="key9-1"
+                data-type="int"
+                value="60"
+                type="radio">
+                <label for="key9-1">60 minutes</label> 
+
+              </fieldset>
+
+              <fieldset data-role="controlgroup" data-type="vertical" data-mini="true">
                 <legend>Temperaure Units</legend> 
 
                 <input name="key3" id="key3-0"
@@ -1434,6 +1452,7 @@
                 <label for="key3-1">Fahrenheit</label> 
 
               </fieldset>
+
               <fieldset data-role="controlgroup" data-type="vertical" data-mini="true">
                 <legend>Weather Location</legend> 
 
@@ -1505,7 +1524,8 @@
             'zip_code':         Number( $("input[name=key5]").val() ),
             'middle_outline':   Number( $("input[name=key6]:checked").val() ),
             'latitude':         $("input[name=key7]").val(),
-            'longitude':        $("input[name=key8]").val()
+            'longitude':        $("input[name=key8]").val(),
+            'update_interval':  Number( $("input[name=key9]:checked").val() )
           }
           return options;
         }
@@ -1534,6 +1554,9 @@
 
           $("input[name=key6][id=key6-"+ls_pto["middle_outline"]+"]").prop('checked',false);
           $("input[name=key6]").checkboxradio('refresh');
+         
+          $("input[name=key9][id=key9-"+ls_pto["update_interval"]+"]").prop('checked',false);
+          $("input[name=key9]").checkboxradio('refresh');
 
          // $("input[name=key7][id=key7-"+ls_pto["latitude"]+"]");
           

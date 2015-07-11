@@ -19,9 +19,15 @@ int background_color_hex_int;
 int font_color_hex_int;
 int temp_to_store = 0;
 int middle_outline_status = 1;
+int update_interval_val = 60;
+int sleep_status = 0;
+int sleep_start_hour = -1;
+int sleep_end_hour = -1;
 
 char latitude_to_store[15] = "0";
 char longitude_to_store[15] = "0";
+
+bool should_vibrate == true;
 
   #define KEY_TEMPERATURE 0
   #define KEY_CONDITIONS 1
@@ -37,6 +43,10 @@ char longitude_to_store[15] = "0";
   #define middle_outline 9
   #define latitude 10
   #define longitude 11
+  #define update_interval 12
+  #define sleep 13
+  #define sleep_start 14
+  #define sleep_end 15
 
 static Window *window;
 static Layer *canvas_layer;
@@ -303,6 +313,9 @@ static int digit_matrix[10][5][3] = {
       case 0:
       x_length_1 = 2;
       break;
+      case 5:
+      x_length_1 = 5;
+      break;
       case 10:
       x_length_1 = 8.4;
       break;
@@ -335,97 +348,89 @@ static int digit_matrix[10][5][3] = {
       break;
     }
 
-/*if (middle_outline_status == 1)
-{
-graphics_context_set_fill_color(ctx, GColorBlack);
-graphics_fill_rect(ctx, GRect(68, 0, 8, 76), 0, GCornersAll);
-graphics_fill_rect(ctx, GRect(68, 92, 8, 77), 0, GCornersAll);
-graphics_fill_rect(ctx, GRect(65, 77, 14, 14), 1, GCornersAll);  
-} */
+    if (charge_state.charge_percent <= 30)
+    {      
+      if (middle_outline_status == 1)
+      {
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_fill_rect(ctx, GRect(68, 0, 8, 1+x_length_1), 0, GCornersAll);
+        graphics_fill_rect(ctx, GRect(68, 167-x_length_1, 8, 26 + x_length_1), 0, GCornersAll);          
+      }
 
-if (charge_state.charge_percent <= 30)
-{      
-  if (middle_outline_status == 1)
-  {
-    graphics_context_set_fill_color(ctx, GColorBlack);
-    graphics_fill_rect(ctx, GRect(68, 0, 8, 1+x_length_1), 0, GCornersAll);
-    graphics_fill_rect(ctx, GRect(68, 167-x_length_1, 8, 26 + x_length_1), 0, GCornersAll);          
+      graphics_context_set_fill_color(ctx, GColorRed);
+      graphics_fill_rect(ctx, GRect(69, 0, 6, x_length_1), 0, GCornersAll);
+      graphics_fill_rect(ctx, GRect(69, 168-x_length_1, 6, x_length_1), 0, GCornersAll);  
+    }
+
+    if (charge_state.charge_percent > 30 && charge_state.charge_percent < 70)
+    {
+      if (middle_outline_status == 1)
+      {
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_fill_rect(ctx, GRect(68, 0, 8, 26+x_length_1), 0, GCornersAll);
+        graphics_fill_rect(ctx, GRect(68, 142-x_length_1, 8, 51 + x_length_1), 0, GCornersAll);          
+      }
+
+      graphics_context_set_fill_color(ctx, GColorRed);
+      graphics_fill_rect(ctx, GRect(69, 0, 6, 25), 0, GCornersAll);
+      graphics_fill_rect(ctx, GRect(69, 143, 6, 25), 0, GCornersAll);  
+      graphics_context_set_fill_color(ctx, GColorYellow);
+      graphics_fill_rect(ctx, GRect(69, 25, 6, x_length_1), 0, GCornersAll);
+      graphics_fill_rect(ctx, GRect(69, 143-x_length_1, 6, x_length_1), 0, GCornersAll);  
+
+    }
+
+    if (charge_state.charge_percent >= 70)
+    {
+      if (middle_outline_status == 1)
+      {
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_fill_rect(ctx, GRect(68, 0, 8, 51+x_length_1), 0, GCornersAll);
+        graphics_fill_rect(ctx, GRect(68, 117-x_length_1, 8, 76 + x_length_1), 0, GCornersAll);          
+      }
+
+      graphics_context_set_fill_color(ctx, GColorRed);
+      graphics_fill_rect(ctx, GRect(69, 0, 6, 25), 0, GCornersAll);
+      graphics_fill_rect(ctx, GRect(69, 143, 6, 25), 0, GCornersAll);  
+      graphics_context_set_fill_color(ctx, GColorYellow);
+      graphics_fill_rect(ctx, GRect(69, 25, 6, 25), 0, GCornersAll);
+      graphics_fill_rect(ctx, GRect(69, 118, 6, 25), 0, GCornersAll);  
+      graphics_context_set_fill_color(ctx, GColorGreen);
+      graphics_fill_rect(ctx, GRect(69, 50, 6, x_length_1), 0, GCornersAll); 
+      graphics_fill_rect(ctx, GRect(69, 118-x_length_1, 6, x_length_1), 0, GCornersAll);   
+    }
+
+    if (charge_state.is_charging)
+    {
+      if (middle_outline_status == 1)
+      {
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_fill_rect(ctx, GRect(68, 0, 8, 76), 0, GCornersAll);
+        graphics_fill_rect(ctx, GRect(68, 92, 8, 76), 0, GCornersAll);
+      }
+
+      graphics_context_set_fill_color(ctx, GColorGreen);
+      graphics_fill_rect(ctx, GRect(69, 0, 6, 75), 0, GCornersAll);  
+      graphics_fill_rect(ctx, GRect(69, 93, 6, 75), 0, GCornersAll);  
+    }
+
+    if (middle_outline_status == 1)
+    {
+      graphics_context_set_fill_color(ctx, GColorBlack);
+      graphics_fill_rect(ctx, GRect(65, 77, 14, 14), 1, GCornersAll);  
+    }
+
+    if (bluetooth_connection_service_peek())
+    {
+      graphics_context_set_fill_color(ctx, GColorBlueMoon);
+    }
+    else
+    {
+      graphics_context_set_fill_color(ctx, GColorRed);
+    }
+    graphics_fill_rect(ctx, GRect(66, 78, 12, 12), 1, GCornersAll);  
+
   }
-
-  graphics_context_set_fill_color(ctx, GColorRed);
-  graphics_fill_rect(ctx, GRect(69, 0, 6, x_length_1), 0, GCornersAll);
-  graphics_fill_rect(ctx, GRect(69, 168-x_length_1, 6, x_length_1), 0, GCornersAll);  
-}
-
-if (charge_state.charge_percent > 30 && charge_state.charge_percent < 70)
-{
-  if (middle_outline_status == 1)
-  {
-    graphics_context_set_fill_color(ctx, GColorBlack);
-    graphics_fill_rect(ctx, GRect(68, 0, 8, 26+x_length_1), 0, GCornersAll);
-    graphics_fill_rect(ctx, GRect(68, 142-x_length_1, 8, 51 + x_length_1), 0, GCornersAll);          
-  }
-
-  graphics_context_set_fill_color(ctx, GColorRed);
-  graphics_fill_rect(ctx, GRect(69, 0, 6, 25), 0, GCornersAll);
-  graphics_fill_rect(ctx, GRect(69, 143, 6, 25), 0, GCornersAll);  
-  graphics_context_set_fill_color(ctx, GColorYellow);
-  graphics_fill_rect(ctx, GRect(69, 25, 6, x_length_1), 0, GCornersAll);
-  graphics_fill_rect(ctx, GRect(69, 143-x_length_1, 6, x_length_1), 0, GCornersAll);  
-
-}
-
-if (charge_state.charge_percent >= 70)
-{
-  if (middle_outline_status == 1)
-  {
-    graphics_context_set_fill_color(ctx, GColorBlack);
-    graphics_fill_rect(ctx, GRect(68, 0, 8, 51+x_length_1), 0, GCornersAll);
-    graphics_fill_rect(ctx, GRect(68, 117-x_length_1, 8, 76 + x_length_1), 0, GCornersAll);          
-  }
-
-  graphics_context_set_fill_color(ctx, GColorRed);
-  graphics_fill_rect(ctx, GRect(69, 0, 6, 25), 0, GCornersAll);
-  graphics_fill_rect(ctx, GRect(69, 143, 6, 25), 0, GCornersAll);  
-  graphics_context_set_fill_color(ctx, GColorYellow);
-  graphics_fill_rect(ctx, GRect(69, 25, 6, 25), 0, GCornersAll);
-  graphics_fill_rect(ctx, GRect(69, 118, 6, 25), 0, GCornersAll);  
-  graphics_context_set_fill_color(ctx, GColorGreen);
-  graphics_fill_rect(ctx, GRect(69, 50, 6, x_length_1), 0, GCornersAll); 
-  graphics_fill_rect(ctx, GRect(69, 118-x_length_1, 6, x_length_1), 0, GCornersAll);   
-}
-
-if (charge_state.is_charging)
-{
-  if (middle_outline_status == 1)
-  {
-    graphics_context_set_fill_color(ctx, GColorBlack);
-    graphics_fill_rect(ctx, GRect(68, 0, 8, 76), 0, GCornersAll);
-    graphics_fill_rect(ctx, GRect(68, 92, 8, 76), 0, GCornersAll);
-  }
-
-  graphics_context_set_fill_color(ctx, GColorGreen);
-  graphics_fill_rect(ctx, GRect(69, 0, 6, 75), 0, GCornersAll);  
-  graphics_fill_rect(ctx, GRect(69, 93, 6, 75), 0, GCornersAll);  
-}
-
-if (middle_outline_status == 1)
-{
-  graphics_context_set_fill_color(ctx, GColorBlack);
-  graphics_fill_rect(ctx, GRect(65, 77, 14, 14), 1, GCornersAll);  
-}
-
-if (bluetooth_connection_service_peek())
-{
-  graphics_context_set_fill_color(ctx, GColorBlueMoon);
-}
-else
-{
-  graphics_context_set_fill_color(ctx, GColorRed);
-}
-graphics_fill_rect(ctx, GRect(66, 78, 12, 12), 1, GCornersAll);  
-
-}
 
 static void update_time()
 {
@@ -470,19 +475,22 @@ static void update_time()
   if(canvas_layer)
     layer_mark_dirty(canvas_layer);
 
-  if(tick_time->tm_min % 60 == 0)
+  if(tick_time->tm_min % update_interval_val == 0)
   {
     DictionaryIterator *iter;
     app_message_outbox_begin(&iter);
 
-  dict_write_uint8(iter, unit, temp_units);  
-  dict_write_uint8(iter, location, location_status);  
-  dict_write_uint32(iter, zip_code, zip_code_int);  
-  dict_write_cstring(iter, latitude, latitude_to_store);
-  dict_write_cstring(iter, longitude, longitude_to_store);  
+    dict_write_uint8(iter, unit, temp_units);  
+    dict_write_uint8(iter, location, location_status);  
+    dict_write_uint32(iter, zip_code, zip_code_int);  
+    dict_write_cstring(iter, latitude, latitude_to_store);
+    dict_write_cstring(iter, longitude, longitude_to_store);  
 
     app_message_outbox_send();
+  }
 
+  if(tick_time->tm_min % 60 == 0 && tick_time->tm_sec % 60 == 0 && should_vibrate == true)
+  {
     switch (vibrate_status)
     {
       case 0:
@@ -531,29 +539,29 @@ static void window_load(Window *window)
 
   static char temp[10];
 
- snprintf(temp, sizeof(temp), "%d°", temp_to_store);
+  snprintf(temp, sizeof(temp), "%d°", temp_to_store);
 
   if (temp_to_store == 0)
   {
-   snprintf(temp, sizeof(temp), "Load");
- }
+    snprintf(temp, sizeof(temp), "Load");
+  }
 
- text_layer_set_text(temperature_text_layer, temp);
+  text_layer_set_text(temperature_text_layer, temp);
 //layer_add_child(window_get_root_layer(window), text_layer_get_layer(temperature_text_layer));
- layer_add_child(text_layer, text_layer_get_layer(temperature_text_layer));
+  layer_add_child(text_layer, text_layer_get_layer(temperature_text_layer));
 
- day_of_week_text_layer = text_layer_create(GRect(0, 67, 63, 30));
- text_layer_set_text_alignment(day_of_week_text_layer, GTextAlignmentRight);
- text_layer_set_background_color(day_of_week_text_layer, GColorClear);
- text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
- text_layer_set_font(day_of_week_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  day_of_week_text_layer = text_layer_create(GRect(0, 67, 63, 30));
+  text_layer_set_text_alignment(day_of_week_text_layer, GTextAlignmentRight);
+  text_layer_set_background_color(day_of_week_text_layer, GColorClear);
+  text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
+  text_layer_set_font(day_of_week_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 //layer_add_child(window_get_root_layer(window), text_layer_get_layer(day_of_week_text_layer));
- layer_add_child(text_layer, text_layer_get_layer(day_of_week_text_layer));
+  layer_add_child(text_layer, text_layer_get_layer(day_of_week_text_layer));
 }
 
 
-static void window_unload(Window *window) 
-{
+ static void window_unload(Window *window) 
+ {
   layer_destroy(canvas_layer);
   text_layer_destroy(month_text_layer);
   text_layer_destroy(day_text_layer);
@@ -652,12 +660,26 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
       case longitude:
       snprintf(longitude_to_store, sizeof(longitude_to_store), "%s", t->value->cstring);
       break;
+      case update_interval:
+      update_interval_val = (int)t->value->int32;
+      break;
+      case sleep:
+      sleep_status = (int)t->value->int32;
+      break;
+      case sleep_start:
+      sleep_start_hour = (int)t->value->int32;
+      break;
+      case sleep_end:
+      sleep_end_hour = (int)t->value->int32;
+      break;
       default:
       APP_LOG(APP_LOG_LEVEL_ERROR, "Key%d not recognized", (int)t->key);
       break;
     }
     t = dict_read_next(iterator);
   }
+
+  APP_LOG(APP_LOG_LEVEL_INFO, "update_interval = %d", update_interval_val);
 
   layer_mark_dirty(canvas_layer);
   layer_mark_dirty(text_layer);
@@ -746,6 +768,23 @@ static void init(void)
   if (persist_exists(longitude))
   {
     persist_read_string(longitude, longitude_to_store, 15);
+  }  
+  if (persist_exists(update_interval))
+  {
+    update_interval_val = persist_read_int(update_interval);
+  }
+  if (persist_exists(sleep))
+  {
+    sleep_status = persist_read_int(sleep);
+  }
+
+  if (persist_exists(sleep_start))
+  {
+    sleep_start_hour = persist_read_int(sleep_start);
+  }
+  if (persist_exists(sleep_end))
+  {
+    sleep_end_hour = persist_read_int(sleep_end);
   }
 
   background_color_hex_int = HexStringToUInt(background_color_hex_char);
@@ -795,6 +834,10 @@ static void deinit(void)
   persist_write_int(middle_outline, (middle_outline_status));
   persist_write_string(latitude, (latitude_to_store));
   persist_write_string(longitude, (longitude_to_store));
+  persist_write_int(update_interval, (update_interval_val));
+  persist_write_int(sleep, (sleep_status));
+  persist_write_int(sleep_start, (sleep_start_hour));
+  persist_write_int(sleep_end, (sleep_end_hour));
 
   window_destroy(window);
   tick_timer_service_unsubscribe();
