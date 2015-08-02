@@ -195,7 +195,7 @@ console.log("URL:" + url);
 }
 
 Pebble.addEventListener("showConfiguration", function(e) {
-  Pebble.openURL('http://cobweb.seas.gwu.edu/~poolec/block_time/block_time_settings_page_to_test');
+  Pebble.openURL('http://cobweb.seas.gwu.edu/~poolec/block_time/block_time_settings_page_v1_4');
 });
 
 Pebble.addEventListener("webviewclosed", function(e){
