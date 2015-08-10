@@ -249,11 +249,19 @@ static int digit_matrix[10][5][3] = {
     background_color_hex_int = HexStringToUInt(background_color_hex_char);
     font_color_hex_int = HexStringToUInt(font_color_hex_char);
 
+  #ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, GColorFromHEX(background_color_hex_int));
+  #else
+    graphics_context_set_fill_color(ctx, GColorBlack);
+  #endif
 
     graphics_fill_rect(ctx, GRect(0, 0, 144, 168), 0, GCornerNone);
 
+  #ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, GColorFromHEX(font_color_hex_int));
+  #else
+    graphics_context_set_fill_color(ctx, GColorWhite);
+  #endif
 
     for (int x=0; x<3; x++)
     {
@@ -363,7 +371,12 @@ static int digit_matrix[10][5][3] = {
           graphics_fill_rect(ctx, GRect(68, 167-x_length_1, 8, 26 + x_length_1), 0, GCornersAll);          
         }
 
+        #ifdef PBL_COLOR
         graphics_context_set_fill_color(ctx, GColorRed);
+        #else
+        graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
+
         graphics_fill_rect(ctx, GRect(69, 0, 6, x_length_1), 0, GCornersAll);
         graphics_fill_rect(ctx, GRect(69, 168-x_length_1, 6, x_length_1), 0, GCornersAll);  
       }
@@ -377,10 +390,18 @@ static int digit_matrix[10][5][3] = {
           graphics_fill_rect(ctx, GRect(68, 142-x_length_1, 8, 51 + x_length_1), 0, GCornersAll);          
         }
 
+        #ifdef PBL_COLOR
         graphics_context_set_fill_color(ctx, GColorRed);
+        #else
+        graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
         graphics_fill_rect(ctx, GRect(69, 0, 6, 25), 0, GCornersAll);
         graphics_fill_rect(ctx, GRect(69, 143, 6, 25), 0, GCornersAll);  
+        #ifdef PBL_COLOR
         graphics_context_set_fill_color(ctx, GColorYellow);
+        #else
+        graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
         graphics_fill_rect(ctx, GRect(69, 25, 6, x_length_1), 0, GCornersAll);
         graphics_fill_rect(ctx, GRect(69, 143-x_length_1, 6, x_length_1), 0, GCornersAll);  
 
@@ -395,13 +416,25 @@ static int digit_matrix[10][5][3] = {
           graphics_fill_rect(ctx, GRect(68, 117-x_length_1, 8, 76 + x_length_1), 0, GCornersAll);          
         }
 
+        #ifdef PBL_COLOR
         graphics_context_set_fill_color(ctx, GColorRed);
+        #else
+        graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
         graphics_fill_rect(ctx, GRect(69, 0, 6, 25), 0, GCornersAll);
         graphics_fill_rect(ctx, GRect(69, 143, 6, 25), 0, GCornersAll);  
+        #ifdef PBL_COLOR
         graphics_context_set_fill_color(ctx, GColorYellow);
+        #else
+        graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
         graphics_fill_rect(ctx, GRect(69, 25, 6, 25), 0, GCornersAll);
         graphics_fill_rect(ctx, GRect(69, 118, 6, 25), 0, GCornersAll);  
+        #ifdef PBL_COLOR
         graphics_context_set_fill_color(ctx, GColorGreen);
+        #else
+        graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
         graphics_fill_rect(ctx, GRect(69, 50, 6, x_length_1), 0, GCornersAll); 
         graphics_fill_rect(ctx, GRect(69, 118-x_length_1, 6, x_length_1), 0, GCornersAll);   
       }
@@ -415,7 +448,11 @@ static int digit_matrix[10][5][3] = {
           graphics_fill_rect(ctx, GRect(68, 92, 8, 76), 0, GCornersAll);
         }
 
+        #ifdef PBL_COLOR
         graphics_context_set_fill_color(ctx, GColorGreen);
+        #else
+        graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
         graphics_fill_rect(ctx, GRect(69, 0, 6, 75), 0, GCornersAll);  
         graphics_fill_rect(ctx, GRect(69, 93, 6, 75), 0, GCornersAll);  
       }
@@ -428,11 +465,23 @@ static int digit_matrix[10][5][3] = {
         graphics_fill_rect(ctx, GRect(68, 0, 8, 76), 0, GCornersAll);  
       }
 
+      #ifdef PBL_COLOR
       graphics_context_set_fill_color(ctx, GColorRed);
+        #else
+      graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
       graphics_fill_rect(ctx, GRect(69, 0, 6, 25), 0, GCornersAll);
+      #ifdef PBL_COLOR
       graphics_context_set_fill_color(ctx, GColorYellow);
+        #else
+      graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
       graphics_fill_rect(ctx, GRect(69, 25, 6, 25), 0, GCornersAll);
+      #ifdef PBL_COLOR
       graphics_context_set_fill_color(ctx, GColorGreen);
+        #else
+      graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
       graphics_fill_rect(ctx, GRect(69, 50, 6, 25), 0, GCornersAll); 
       
       if (middle_outline_status == 1)
@@ -441,30 +490,53 @@ static int digit_matrix[10][5][3] = {
         graphics_fill_rect(ctx, GRect(68, 92, 8, 76), 0, GCornersAll);  
       }
 
+      #ifdef PBL_COLOR
       graphics_context_set_fill_color(ctx, GColorGreen);
+        #else
+      graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
       graphics_fill_rect(ctx, GRect(69, 93, 6, 25), 0, GCornersAll);
+      #ifdef PBL_COLOR
       graphics_context_set_fill_color(ctx, GColorYellow);
+        #else
+      graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
       graphics_fill_rect(ctx, GRect(69, 118, 6, 25), 0, GCornersAll);
+      #ifdef PBL_COLOR
       graphics_context_set_fill_color(ctx, GColorRed);
+        #else
+      graphics_context_set_fill_color(ctx, GColorWhite);
+        #endif
       graphics_fill_rect(ctx, GRect(69, 143, 6, 25), 0, GCornersAll);  
     }
 
     if (middle_outline_status == 1)
     {
-      graphics_context_set_fill_color(ctx, GColorBlack);
-      graphics_fill_rect(ctx, GRect(65, 77, 14, 14), 1, GCornersAll);  
+      #ifdef PBL_COLOR
+        graphics_context_set_fill_color(ctx, GColorBlack);
+      #else
+        graphics_context_set_fill_color(ctx, GColorWhite);
+      #endif
+        graphics_fill_rect(ctx, GRect(65, 77, 14, 14), 1, GCornersAll);  
     }
 
     if (bluetooth_connection_service_peek())
     {
-      graphics_context_set_fill_color(ctx, GColorBlueMoon);
+      #ifdef PBL_COLOR
+        graphics_context_set_fill_color(ctx, GColorBlueMoon);
+      #else
+        graphics_context_set_fill_color(ctx, GColorWhite);
+      #endif
     }
     else
     {
+      #ifdef PBL_COLOR
       graphics_context_set_fill_color(ctx, GColorRed);
+        #else
+      graphics_context_set_fill_color(ctx, GColorBlack);
+        #endif
     }
     graphics_fill_rect(ctx, GRect(66, 78, 12, 12), 1, GCornersAll);  
-
   }
 
   static void update_time()
@@ -543,7 +615,14 @@ static int digit_matrix[10][5][3] = {
       APP_LOG(APP_LOG_LEVEL_INFO, "is in sleep = false");
 
       text_layer_set_text(sleep_text_layer, "");
-      snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", temp_to_store);
+      if(temp_to_store < 100)
+      {
+        snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", temp_to_store);
+      }
+      else
+      {
+        snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", temp_to_store);
+      }
       text_layer_set_text(temperature_text_layer, temperature_buffer);
     }
 
@@ -591,7 +670,11 @@ static int digit_matrix[10][5][3] = {
     month_text_layer = text_layer_create(GRect(82, 67, 72, 30));
     text_layer_set_text_alignment(month_text_layer, GTextAlignmentLeft);
     text_layer_set_background_color(month_text_layer, GColorClear);
+  #ifdef PBL_COLOR
     text_layer_set_text_color(month_text_layer, GColorFromHEX(font_color_hex_int));
+  #else
+    text_layer_set_text_color(month_text_layer, GColorWhite);
+  #endif
     text_layer_set_font(month_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 //layer_add_child(window_get_root_layer(window), text_layer_get_layer(month_text_layer));
     layer_add_child(text_layer, text_layer_get_layer(month_text_layer));
@@ -599,7 +682,11 @@ static int digit_matrix[10][5][3] = {
     day_text_layer = text_layer_create(GRect(76, 67, 64, 30));
     text_layer_set_text_alignment(day_text_layer, GTextAlignmentRight);
     text_layer_set_background_color(day_text_layer, GColorClear);
+  #ifdef PBL_COLOR
     text_layer_set_text_color(day_text_layer, GColorFromHEX(font_color_hex_int));
+  #else
+    text_layer_set_text_color(day_text_layer, GColorWhite);
+  #endif
     text_layer_set_font(day_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 //layer_add_child(window_get_root_layer(window), text_layer_get_layer(day_text_layer));
     layer_add_child(text_layer, text_layer_get_layer(day_text_layer));
@@ -607,12 +694,23 @@ static int digit_matrix[10][5][3] = {
     temperature_text_layer = text_layer_create(GRect(2, 67, 64, 30));
     text_layer_set_text_alignment(temperature_text_layer, GTextAlignmentLeft);
     text_layer_set_background_color(temperature_text_layer, GColorClear);
+  #ifdef PBL_COLOR
     text_layer_set_text_color(temperature_text_layer, GColorFromHEX(font_color_hex_int));
+  #else
+    text_layer_set_text_color(temperature_text_layer, GColorWhite);
+  #endif
     text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
-    
+
     static char temp[10];
 
-    snprintf(temp, sizeof(temp), "%d°", temp_to_store);
+    if(temp_to_store < 100)
+    {
+      snprintf(temp, sizeof(temp), "%d°", temp_to_store);
+    }
+    else
+    {
+      snprintf(temp, sizeof(temp), "%d", temp_to_store);
+    }
 
     if (temp_to_store == 0)
     {
@@ -622,22 +720,31 @@ static int digit_matrix[10][5][3] = {
     text_layer_set_text(temperature_text_layer, temp);
 //layer_add_child(window_get_root_layer(window), text_layer_get_layer(temperature_text_layer));
     layer_add_child(text_layer, text_layer_get_layer(temperature_text_layer));
-    
+
     sleep_text_layer = text_layer_create(GRect(1, 71, 64, 30));
     text_layer_set_text_alignment(sleep_text_layer, GTextAlignmentLeft);
     text_layer_set_background_color(sleep_text_layer, GColorClear);
+  #ifdef PBL_COLOR
     text_layer_set_text_color(sleep_text_layer, GColorFromHEX(font_color_hex_int));
+  #else
+    text_layer_set_text_color(sleep_text_layer, GColorWhite);
+  #endif
     text_layer_set_font(sleep_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
     layer_add_child(text_layer, text_layer_get_layer(sleep_text_layer));
 
     day_of_week_text_layer = text_layer_create(GRect(0, 67, 62, 30));
     text_layer_set_text_alignment(day_of_week_text_layer, GTextAlignmentRight);
     text_layer_set_background_color(day_of_week_text_layer, GColorClear);
+  #ifdef PBL_COLOR
     text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
+  #else
+    text_layer_set_text_color(day_of_week_text_layer, GColorWhite);
+  #endif
     text_layer_set_font(day_of_week_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 //layer_add_child(window_get_root_layer(window), text_layer_get_layer(day_of_week_text_layer));
     layer_add_child(text_layer, text_layer_get_layer(day_of_week_text_layer));
   }
+
 
 
   static void window_unload(Window *window) 
@@ -684,7 +791,14 @@ static int digit_matrix[10][5][3] = {
         break;
         case KEY_TEMPERATURE:
         temp_to_store = (int)t->value->int32;
-        snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", (int)t->value->int32);
+        if(temp_to_store < 100)
+        {
+          snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", (int)t->value->int32);
+        }
+        else
+        {
+          snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", (int)t->value->int32);
+        }
         break;
         case KEY_CONDITIONS:
         snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", t->value->cstring);
@@ -772,12 +886,19 @@ static int digit_matrix[10][5][3] = {
     font_color_hex_int = HexStringToUInt(font_color_hex_char);
     text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 
+  #ifdef PBL_COLOR
     text_layer_set_text_color(month_text_layer, GColorFromHEX(font_color_hex_int));
     text_layer_set_text_color(day_text_layer, GColorFromHEX(font_color_hex_int));
     text_layer_set_text_color(temperature_text_layer, GColorFromHEX(font_color_hex_int));
     text_layer_set_text_color(sleep_text_layer, GColorFromHEX(font_color_hex_int));
     text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
-
+  #else
+    text_layer_set_text_color(month_text_layer, GColorWhite);
+    text_layer_set_text_color(day_text_layer, GColorWhite);
+    text_layer_set_text_color(temperature_text_layer, GColorWhite);
+    text_layer_set_text_color(sleep_text_layer, GColorWhite);
+    text_layer_set_text_color(day_of_week_text_layer, GColorWhite);
+  #endif
     update_time();
   }
 

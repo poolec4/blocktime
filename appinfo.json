@@ -28,9 +28,9 @@
     "companyName": "CDev",
     "shortName": "Block Time",
     "longName": "Block Time",
-    "versionLabel": "1.5",
+    "versionLabel": "2.0",
     "sdkVersion": "3",
-    "targetPlatforms": ["basalt"],
+    "targetPlatforms": ["aplite", "basalt"],
     "watchapp": {
       "watchface": true
       },
