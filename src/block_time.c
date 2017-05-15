@@ -319,16 +319,15 @@ static int digit_matrix[10][5][3] = {
     {
       BatteryChargeState charge_state = battery_state_service_peek();
 
-      int x_length_1 = 25;
-      int x_length_2;
+      double x_length_1 = 25;
 
       switch (charge_state.charge_percent)
       {
         case 0:
-        x_length_1 = 2;
+        x_length_1 = 2.;
         break;
         case 5:
-        x_length_1 = 5;
+        x_length_1 = 5.;
         break;
         case 10:
         x_length_1 = 8.4;
@@ -337,7 +336,7 @@ static int digit_matrix[10][5][3] = {
         x_length_1 = 16.8;
         break;
         case 30:
-        x_length_1 = 25;
+        x_length_1 = 25.;
         break;
         case 40:
         x_length_1 = 8.4;
@@ -346,7 +345,7 @@ static int digit_matrix[10][5][3] = {
         x_length_1 = 16.8;
         break;
         case 60:
-        x_length_1 = 25;
+        x_length_1 = 25.;
         break;
         case 70:
         x_length_1 = 6.25;
@@ -358,7 +357,7 @@ static int digit_matrix[10][5][3] = {
         x_length_1 = 18.75;
         break;
         case 100:
-        x_length_1 = 25;
+        x_length_1 = 25.;
         break;
       }
 
@@ -661,7 +660,6 @@ static int digit_matrix[10][5][3] = {
   {
     Layer *window_layer = window_get_root_layer(window);
     text_layer = window_get_root_layer(window);
-    GRect bounds = layer_get_bounds(window_layer);
 
     canvas_layer = layer_create(GRect(0, 0, 144, 168));
     layer_add_child(window_layer, canvas_layer);
@@ -767,7 +765,6 @@ static int digit_matrix[10][5][3] = {
   static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   {
     static char conditions_buffer[32];
-    static char weather_layer_buffer[32];
     static char location_buffer[32];
 
     Tuple *t = dict_read_first(iterator);
