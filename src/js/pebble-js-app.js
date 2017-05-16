@@ -22,7 +22,7 @@ function locationSuccess(pos) {
   //longitude = longitude.replace(/"/g, '');
   
 // Test location
- //url = "http://api.openweathermap.org/data/2.5/weather?q=albany,usa";
+ //url = "http://api.openweathermap.org/data/2.5/weather?q=albany,usa&appid=0a69eddcd5c88ed0db3e5f0d4c183cff";
 
  //real location 
  if (location_status == 1 && zip_code != 'undefined' && zip_code !== 0)
@@ -91,7 +91,7 @@ console.log("URL:" + url);
         },
         function(e) {
           console.log("Error sending weather info to Pebble!");
-          getWeather();
+          //getWeather();
         }
         );
     }      
@@ -183,7 +183,6 @@ console.log("URL:" + url);
         },
         function(e) {
           console.log("Error sending weather info to Pebble!");
-          getWeather();
         }
         );
     }      

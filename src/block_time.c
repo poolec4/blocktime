@@ -222,7 +222,7 @@ unsigned int HexStringToUInt(char const* hexstring)
       result += thisC - 'A' + 10;
     else
     {
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "ERROR: Unrecognised hex character \"%c\"", thisC);
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "ERROR: Unrecognized hex character \"%c\"", thisC);
       return 0;
     }
     ++c;
@@ -562,13 +562,44 @@ static void update_time()
   strftime(date_buffer, sizeof("**"), "%e",tick_time);
   strftime(day_buffer, sizeof("***"), "%a",tick_time);
 
-  if(tick_time->tm_mon == 2 || tick_time->tm_mon == 3 || tick_time->tm_mon == 4 || tick_time->tm_mon == 5 || tick_time->tm_mon == 6)
+  switch(tick_time->tm_mon)
   {
-    strftime(month_buffer, sizeof("*******"), "%B",tick_time);
-  } 
-  else
-  {
-    strftime(month_buffer, sizeof("*******"), "%b",tick_time);
+    case 0:
+      strcpy(month_buffer,"Jan");
+      break;
+    case 1:
+      strcpy(month_buffer,"Feb");
+      break;
+    case 2:
+      strcpy(month_buffer,"Mar");
+      break;
+    case 3:
+      strcpy(month_buffer,"Apr");
+      break;
+    case 4:
+      strcpy(month_buffer,"May");
+      break;
+    case 5:
+      strcpy(month_buffer,"June");
+      break;
+    case 6:
+      strcpy(month_buffer,"July");
+      break;
+    case 7:
+      strcpy(month_buffer,"Aug");
+      break;
+    case 8:
+      strcpy(month_buffer,"Sep");
+      break;
+    case 9:
+      strcpy(month_buffer,"Oct");
+      break;
+    case 10:
+      strcpy(month_buffer,"Nov");
+      break;
+    case 11:
+      strcpy(month_buffer,"Dec");
+      break;
   }
 
   text_layer_set_text(day_text_layer, date_buffer);
@@ -727,8 +758,6 @@ static void window_load(Window *window)
   //layer_add_child(window_get_root_layer(window), text_layer_get_layer(day_of_week_text_layer));
     layer_add_child(text_layer, text_layer_get_layer(day_of_week_text_layer));
 }
-
-
 
 static void window_unload(Window *window) 
 {
@@ -982,17 +1011,25 @@ static void init(void)
   background_color_hex_int = HexStringToUInt(background_color_hex_char);
   font_color_hex_int = HexStringToUInt(font_color_hex_char);
 
-  if(background_color_hex_int == 0)
-      backgroundGColor = GColorBlack;
+  switch(background_color_hex_int)
+  {
+    case 0:
+        backgroundGColor = GColorBlack;
+        break;
+    case 16777215: 
+        backgroundGColor = GColorWhite;
+        break;
+    }
 
-  if(background_color_hex_int == 16777215) 
-      backgroundGColor = GColorWhite;
-
-  if(font_color_hex_int == 0)
-    fontGColor = GColorBlack;
-
-  if(font_color_hex_int == 16777215)
-    fontGColor = GColorWhite;
+  switch(font_color_hex_int)
+  {
+    case 0:
+      fontGColor = GColorBlack;
+      break;
+    case 16777215:
+      fontGColor = GColorWhite;
+      break;
+    }
 
   window = window_create();
   window_set_window_handlers(window, (WindowHandlers) {
