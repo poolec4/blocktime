@@ -18,8 +18,8 @@ function locationSuccess(pos) {
   console.log(" ** getWeather **");
 
   var url; 
-  latitude = latitude.replace(/"/g, '');
-  longitude = longitude.replace(/"/g, '');
+  //latitude = latitude.replace(/"/g, '');
+  //longitude = longitude.replace(/"/g, '');
   
 // Test location
  //url = "http://api.openweathermap.org/data/2.5/weather?q=albany,usa";
@@ -102,7 +102,7 @@ console.log("URL:" + url);
 function locationError(err){
   console.log("Error reuesting location.");
 
-  getWeather();
+  getWeather_no_pos();
 }
 
 function getWeather(){
@@ -135,10 +135,6 @@ else if (location_status == 2 && latitude != 'undefined' && latitude !== 0 && lo
   console.log("Based on custom lat/long");
   url = "http://api.openweathermap.org/data/2.5/weather?lat=" +
   latitude + "&lon=" + longitude + "&appid=0a69eddcd5c88ed0db3e5f0d4c183cff";
-}
-else
-{
-  getWeather();
 }
 
 console.log("URL:" + url);
@@ -235,6 +231,7 @@ Pebble.addEventListener("webviewclosed", function(e){
 Pebble.addEventListener('ready',
   function(e) {
     console.log("PebbleKit JS ready!");
+    getWeather();
   }
   );
 
