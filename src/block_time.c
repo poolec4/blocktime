@@ -43,6 +43,12 @@ bool is_in_sleep = false;
 #define KEY_SLEEP_END 15
 #define KEY_BATTERY_METER 16
 
+static AppSync s_sync;
+static uint8_t s_sync_buffer[500];
+
+#define MyTupletCString(_key, _cstring) \
+((const Tuplet) { .type = TUPLE_CSTRING, .key = _key, .cstring = { .data = _cstring, .length = strlen(_cstring) + 1 }})
+
 static Window *window;
 static Layer *canvas_layer;
 static Layer *text_layer;
@@ -51,9 +57,6 @@ static TextLayer *day_text_layer;
 static TextLayer *temperature_text_layer;
 static TextLayer *day_of_week_text_layer;
 static TextLayer *sleep_text_layer;
-
-static AppSync s_sync;
-static uint8_t s_sync_buffer[64];
 
 static char day_buffer[10];
 static char date_buffer[10];
@@ -402,7 +405,8 @@ static void update_time()
 
 static void sync_error_callback(DictionaryResult dict_error, AppMessageResult app_message_error, void *context) 
 {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d", app_message_error);
+  if (app_message_error != 0)
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d", app_message_error);
 }
 
 static void sync_tuple_changed_callback(const uint32_t key, const Tuple* t, const Tuple* old_tuple, void* context) 
@@ -410,19 +414,15 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* t, cons
   static char conditions_buffer[32];
   static char location_buffer[32];
 
-  APP_LOG(APP_LOG_LEVEL_INFO, "AppMessage Received");
+  APP_LOG(APP_LOG_LEVEL_INFO, "AppMessage of key %d Received", (int)t->key);
 
   switch (key) {
     case KEY_TEMPERATURE:
       temp_to_store = (int)t->value->int32;
       if(temp_to_store < 100)
-      {
         snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", (int)t->value->int32);
-      }
       else
-      {
         snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", (int)t->value->int32);
-      }
       break;
 
     case KEY_CONDITIONS:
@@ -442,33 +442,15 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* t, cons
       break;
 
     case KEY_VIBRATE:
-      switch((int)t->value->int32)
-      {
-        case 0:
-        vibrate_status = 0;
-        break;
-        case 1:
-        vibrate_status = 1;
-        break;
-        case 2:
-        vibrate_status = 2;
-        break;
-      }
+      vibrate_status = (int)t->value->int32;
+      break;
+
+    case KEY_UNIT:
+      temp_units = (int)t->value->int32;
       break;
     
     case KEY_LOCATION:
-      switch((int)t->value->int32)
-      {
-        case 0:
-        location_status = 0;
-        break;
-        case 1:
-        location_status = 1;
-        break;
-        case 2:
-        location_status = 2;
-        break;
-      }
+      location_status = (int)t->value->int32;
       break;      
       
     case KEY_ZIP_CODE:
@@ -513,15 +495,10 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* t, cons
       break;
   }
 
-  layer_mark_dirty(canvas_layer);
-  layer_mark_dirty(text_layer);
-
   text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   if (is_in_sleep != true)    
     text_layer_set_text(temperature_text_layer, temperature_buffer);
 
-  background_color_hex_int = HexStringToUInt(background_color_hex_char);
-  font_color_hex_int = HexStringToUInt(font_color_hex_char);
   text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 
   #ifdef PBL_COLOR
@@ -538,6 +515,9 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* t, cons
     text_layer_set_text_color(day_of_week_text_layer, fontGColor);
   #endif
   
+  layer_mark_dirty(canvas_layer);
+  layer_mark_dirty(text_layer);
+
   update_time();
 }
 
@@ -550,7 +530,33 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
 
   background_color_hex_int = HexStringToUInt(background_color_hex_char);
   font_color_hex_int = HexStringToUInt(font_color_hex_char);
-  
+
+  switch(background_color_hex_int)
+  {
+    case 0:
+      backgroundGColor = GColorBlack;
+      break;
+    case 16777215: 
+      backgroundGColor = GColorWhite;
+      break;
+    default:
+      backgroundGColor = GColorBlack;
+      break;
+  }
+
+  switch(font_color_hex_int)
+  {
+    case 0:
+      fontGColor = GColorBlack;
+      break;
+    case 16777215:
+      fontGColor = GColorWhite;
+      break;
+    default:
+      fontGColor = GColorWhite;
+      break;
+  }
+
   #ifdef PBL_COLOR
     graphics_context_set_fill_color(ctx, GColorFromHEX(background_color_hex_int));
   #else  
@@ -828,6 +834,20 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
       #endif
   }
   graphics_fill_rect(ctx, GRect(66, 78, 12, 12), 1, GCornersAll);  
+
+  #ifdef PBL_COLOR
+    text_layer_set_text_color(month_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(day_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(temperature_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(sleep_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
+  #else
+    text_layer_set_text_color(month_text_layer, fontGColor);
+    text_layer_set_text_color(day_text_layer, fontGColor);
+    text_layer_set_text_color(temperature_text_layer, fontGColor);
+    text_layer_set_text_color(sleep_text_layer, fontGColor);
+    text_layer_set_text_color(day_of_week_text_layer, fontGColor);
+  #endif
 }
 
 static void window_load(Window *window) 
@@ -843,11 +863,7 @@ static void window_load(Window *window)
   text_layer_set_text_alignment(month_text_layer, GTextAlignmentLeft);
   text_layer_set_background_color(month_text_layer, GColorClear);
 
-  #ifdef PBL_COLOR
-    text_layer_set_text_color(month_text_layer, GColorFromHEX(font_color_hex_int));
-  #else
-    text_layer_set_text_color(month_text_layer, fontGColor);
-  #endif
+  
     text_layer_set_font(month_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   //layer_add_child(window_get_root_layer(window), text_layer_get_layer(month_text_layer));
     layer_add_child(text_layer, text_layer_get_layer(month_text_layer));
@@ -855,11 +871,7 @@ static void window_load(Window *window)
     day_text_layer = text_layer_create(GRect(76, 67, 64, 30));
     text_layer_set_text_alignment(day_text_layer, GTextAlignmentRight);
     text_layer_set_background_color(day_text_layer, GColorClear);
-  #ifdef PBL_COLOR
-    text_layer_set_text_color(day_text_layer, GColorFromHEX(font_color_hex_int));
-  #else
-    text_layer_set_text_color(day_text_layer, fontGColor);
-  #endif
+  
     text_layer_set_font(day_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   //layer_add_child(window_get_root_layer(window), text_layer_get_layer(day_text_layer));
     layer_add_child(text_layer, text_layer_get_layer(day_text_layer));
@@ -867,11 +879,7 @@ static void window_load(Window *window)
     temperature_text_layer = text_layer_create(GRect(2, 67, 64, 30));
     text_layer_set_text_alignment(temperature_text_layer, GTextAlignmentLeft);
     text_layer_set_background_color(temperature_text_layer, GColorClear);
-  #ifdef PBL_COLOR
-    text_layer_set_text_color(temperature_text_layer, GColorFromHEX(font_color_hex_int));
-  #else
-    text_layer_set_text_color(temperature_text_layer, fontGColor);
-  #endif
+  
     text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
 
     static char temp[10];
@@ -897,22 +905,14 @@ static void window_load(Window *window)
     sleep_text_layer = text_layer_create(GRect(1, 71, 64, 30));
     text_layer_set_text_alignment(sleep_text_layer, GTextAlignmentLeft);
     text_layer_set_background_color(sleep_text_layer, GColorClear);
-  #ifdef PBL_COLOR
-    text_layer_set_text_color(sleep_text_layer, GColorFromHEX(font_color_hex_int));
-  #else
-    text_layer_set_text_color(sleep_text_layer, fontGColor);
-  #endif
+  
     text_layer_set_font(sleep_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
     layer_add_child(text_layer, text_layer_get_layer(sleep_text_layer));
 
     day_of_week_text_layer = text_layer_create(GRect(0, 67, 62, 30));
     text_layer_set_text_alignment(day_of_week_text_layer, GTextAlignmentRight);
     text_layer_set_background_color(day_of_week_text_layer, GColorClear);
-  #ifdef PBL_COLOR
-    text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
-  #else
-    text_layer_set_text_color(day_of_week_text_layer, fontGColor);
-  #endif
+  
     text_layer_set_font(day_of_week_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   //layer_add_child(window_get_root_layer(window), text_layer_get_layer(day_of_week_text_layer));
     layer_add_child(text_layer, text_layer_get_layer(day_of_week_text_layer));
@@ -921,6 +921,20 @@ static void window_load(Window *window)
     TupletInteger(KEY_TEMPERATURE, temp_to_store),
     TupletCString(KEY_CONDITIONS, " "),
     TupletCString(KEY_POS, " "),
+    MyTupletCString(KEY_BACKGROUND_COLOR, background_color_hex_char),
+    MyTupletCString(KEY_FONT_COLOR, font_color_hex_char),
+    TupletInteger(KEY_VIBRATE, vibrate_status),
+    TupletInteger(KEY_UNIT, temp_units),
+    TupletInteger(KEY_LOCATION, location_status),
+    TupletInteger(KEY_ZIP_CODE, zip_code_int),
+    TupletInteger(KEY_MIDDLE_OUTLINE, middle_outline_status),
+    MyTupletCString(KEY_LATITUDE, latitude_to_store),
+    MyTupletCString(KEY_LONGITUDE, longitude_to_store),
+    TupletInteger(KEY_UPDATE_INTERVAL, update_interval_val),
+    TupletInteger(KEY_SLEEP, sleep_status),
+    TupletInteger(KEY_SLEEP_START, sleep_start_hour),
+    TupletInteger(KEY_SLEEP_END, sleep_end_hour),
+    TupletInteger(KEY_BATTERY_METER, battery_meter_status)
   };
 
   app_sync_init(&s_sync, s_sync_buffer, sizeof(s_sync_buffer),
@@ -1014,27 +1028,6 @@ static void init(void)
 
   background_color_hex_int = HexStringToUInt(background_color_hex_char);
   font_color_hex_int = HexStringToUInt(font_color_hex_char);
-
-  switch(background_color_hex_int)
-  {
-    case 0:
-        backgroundGColor = GColorBlack;
-        break;
-    case 16777215: 
-        backgroundGColor = GColorWhite;
-        break;
-
-    }
-
-  switch(font_color_hex_int)
-  {
-    case 0:
-      fontGColor = GColorBlack;
-      break;
-    case 16777215:
-      fontGColor = GColorWhite;
-      break;
-    }
 
   window = window_create();
   window_set_window_handlers(window, (WindowHandlers) {

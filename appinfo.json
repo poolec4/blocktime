@@ -30,11 +30,11 @@
     "longName": "Block Time",
     "versionLabel": "2.0",
     "sdkVersion": "3",
-    "targetPlatforms": ["aplite", "basalt", "diorite", "emery"],
+    "targetPlatforms": ["aplite", "basalt", "diorite"],
     "watchapp": {
       "watchface": true
       },
       "resources": {
         "media": []
       }
-    }
+}

@@ -26,13 +26,14 @@ function fetchWeather(pos) {
     console.log("Latitude: " + pos.coords.latitude);
     console.log("Longitude: " + pos.coords.longitude); 
   }
-  console.log("URL:" + url);
+  
+  //console.log("URL:" + url);
 
   xhr.open('GET',url,true);
   xhr.onload = function() {
     if(xhr.readyState === 4) {
       if(xhr.status === 200) {
-        console.log(xhr.responseText);
+        //console.log(xhr.responseText);
         var json = JSON.parse(xhr.responseText);
 
         var temperature;
@@ -87,7 +88,14 @@ var locationOptions = {
 };
 
 Pebble.addEventListener("showConfiguration", function(e) {
-  Pebble.openURL('http://cobweb.seas.gwu.edu/~poolec/block_time/block_time_settings_page_current');
+  watch_info = Pebble.getActiveWatchInfo()
+
+  if (watch_info.platform == "basalt") {
+    Pebble.openURL('http://cobweb.seas.gwu.edu/~poolec/block_time/block_time_settings_page_current');
+  }
+  else {
+    Pebble.openURL('http://cobweb.seas.gwu.edu/~poolec/block_time/block_time_settings_page_current_bw');
+  }
 });
 
 Pebble.addEventListener("webviewclosed", function(e){
@@ -97,8 +105,9 @@ Pebble.addEventListener("webviewclosed", function(e){
   if (e.response !== undefined && e.response !== '' && e.response !== 'CANCELLED') {
     console.log("User hit save");
     values = JSON.parse(decodeURIComponent(e.response));
-    //console.log("stringified options: " + JSON.stringify((values)));
-    
+    console.log("stringified options: " + JSON.stringify((values)));
+    //console.log("config values: " + values);
+
     var json = JSON.parse(e.response);
 
     temp_units = json.KEY_UNIT;
@@ -112,7 +121,14 @@ Pebble.addEventListener("webviewclosed", function(e){
 
     window.navigator.geolocation.getCurrentPosition(locationSuccess, locationError,locationOptions);
 
-    Pebble.sendAppMessage(values);
+    Pebble.sendAppMessage(values,
+      function(e) {
+        console.log("Config sent to Pebble successfully!");
+      },
+      function(e) {
+        console.log("Error sending config data to Pebble!");
+      }
+    );  
   }
 });
 
