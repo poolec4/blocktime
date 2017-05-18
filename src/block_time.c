@@ -25,23 +25,23 @@ bool is_in_sleep = false;
 
 #define KEY_TEMPERATURE 0
 #define KEY_CONDITIONS 1
-#define KEY_LOCATION 2
+#define KEY_POS 2
 
 //settings keys
-#define background_color 3
-#define font_color 4
-#define vibrate 5
-#define unit 6
-#define location 7
-#define zip_code 8
-#define middle_outline 9
-#define latitude 10
-#define longitude 11
-#define update_interval 12
-#define sleep 13
-#define sleep_start 14
-#define sleep_end 15
-#define battery_meter 16
+#define KEY_BACKGROUND_COLOR 3
+#define KEY_FONT_COLOR 4
+#define KEY_VIBRATE 5
+#define KEY_UNIT 6
+#define KEY_LOCATION 7
+#define KEY_ZIP_CODE 8
+#define KEY_MIDDLE_OUTLINE 9
+#define KEY_LATITUDE 10
+#define KEY_LONGITUDE 11
+#define KEY_UPDATE_INTERVAL 12
+#define KEY_SLEEP 13
+#define KEY_SLEEP_START 14
+#define KEY_SLEEP_END 15
+#define KEY_BATTERY_METER 16
 
 static Window *window;
 static Layer *canvas_layer;
@@ -52,6 +52,9 @@ static TextLayer *temperature_text_layer;
 static TextLayer *day_of_week_text_layer;
 static TextLayer *sleep_text_layer;
 
+static AppSync s_sync;
+static uint8_t s_sync_buffer[64];
+
 static char day_buffer[10];
 static char date_buffer[10];
 static char month_buffer[10];
@@ -60,8 +63,9 @@ static char temperature_buffer[8];
 GColor backgroundGColor;
 GColor fontGColor;
 
-static int digit_matrix[10][5][3] = {
+static int digit_matrix[10][5][3] = 
 {
+  {
     {1, 1, 1}, // 0
     {1, 0, 1},
     {1, 0, 1},
@@ -133,7 +137,8 @@ static int digit_matrix[10][5][3] = {
   } 
 };
 
-static int digit_rounded_corners[10][5][3] = {
+static int digit_rounded_corners[10][5][3] = 
+{
   {
     {1, 0, 2}, // 0
     {0, 0, 0},
@@ -230,9 +235,311 @@ unsigned int HexStringToUInt(char const* hexstring)
   return result;  
 }
 
+static void requestWeather(void) 
+{
+  DictionaryIterator *iter;
+  app_message_outbox_begin(&iter);
+
+  if (!iter) {
+    // Error creating outbound message
+    return;
+  }
+
+  int value = 1;
+  dict_write_int(iter, 1, &value, sizeof(int), true);
+  dict_write_end(iter);
+
+  app_message_outbox_send();
+}
+
 int numbers_to_print[4] = {0,0,0,0};
 int x_start[4] = {2, 83, 2, 83};
 int y_start[4] = {2, 2, 97, 97};
+
+static void update_time()
+{
+  time_t temp = time(NULL);
+  struct tm *tick_time = localtime(&temp);
+
+  int normal_hours = 0;
+
+  if (clock_is_24h_style())
+  {
+    numbers_to_print[0] = tick_time->tm_hour/10;
+    numbers_to_print[1] = tick_time->tm_hour-(10*numbers_to_print[0]);
+  }
+  else
+  {
+    normal_hours = tick_time->tm_hour;
+
+    if (tick_time->tm_hour > 12)
+    {    
+      normal_hours = tick_time->tm_hour-12;
+    }
+    if (tick_time->tm_hour == 0)
+    {
+      normal_hours = 12;
+    }
+
+    numbers_to_print[0] = (normal_hours/10);
+    numbers_to_print[1] = (normal_hours-(10*numbers_to_print[0]));
+  }
+
+  numbers_to_print[2] = tick_time->tm_min/10;
+  numbers_to_print[3] = tick_time->tm_min-(10*numbers_to_print[2]);
+
+  strftime(date_buffer, sizeof("**"), "%e",tick_time);
+  strftime(day_buffer, sizeof("***"), "%a",tick_time);
+
+  switch(tick_time->tm_mon)
+  {
+    case 0:
+      strcpy(month_buffer,"Jan");
+      break;
+    case 1:
+      strcpy(month_buffer,"Feb");
+      break;
+    case 2:
+      strcpy(month_buffer,"Mar");
+      break;
+    case 3:
+      strcpy(month_buffer,"Apr");
+      break;
+    case 4:
+      strcpy(month_buffer,"May");
+      break;
+    case 5:
+      strcpy(month_buffer,"June");
+      break;
+    case 6:
+      strcpy(month_buffer,"July");
+      break;
+    case 7:
+      strcpy(month_buffer,"Aug");
+      break;
+    case 8:
+      strcpy(month_buffer,"Sep");
+      break;
+    case 9:
+      strcpy(month_buffer,"Oct");
+      break;
+    case 10:
+      strcpy(month_buffer,"Nov");
+      break;
+    case 11:
+      strcpy(month_buffer,"Dec");
+      break;
+  }
+
+  text_layer_set_text(day_text_layer, date_buffer);
+  text_layer_set_text(day_of_week_text_layer, day_buffer);
+  text_layer_set_text(month_text_layer, month_buffer);
+
+  if(canvas_layer)
+    layer_mark_dirty(canvas_layer);
+
+  if (sleep_status == 1)
+  {
+    if( (tick_time->tm_hour >= sleep_start_hour || sleep_start_hour > sleep_end_hour) && (tick_time->tm_hour < sleep_end_hour))
+      is_in_sleep = true;
+    else
+      is_in_sleep = false;
+  }
+  else        
+  {
+    is_in_sleep = false;
+  }
+
+  if (is_in_sleep == true)
+  {    
+    text_layer_set_text(sleep_text_layer, "Sleep");
+    text_layer_set_text(temperature_text_layer, "");
+  }
+  else
+  {        
+    text_layer_set_text(sleep_text_layer, "");
+    if(temp_to_store < 100)
+    {
+      snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", temp_to_store);
+    }
+    else
+    {
+      snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", temp_to_store);
+    }
+    text_layer_set_text(temperature_text_layer, temperature_buffer);
+  }
+
+  if(tick_time->tm_min % update_interval_val == 0 && tick_time->tm_sec % 60 == 0 && is_in_sleep != true)
+  {
+    DictionaryIterator *iter;
+    app_message_outbox_begin(&iter);
+
+    dict_write_uint8(iter, KEY_UNIT, temp_units);  
+    dict_write_uint8(iter, KEY_LOCATION, location_status);  
+    dict_write_uint32(iter, KEY_ZIP_CODE, zip_code_int);  
+    dict_write_cstring(iter, KEY_LATITUDE, latitude_to_store);
+    dict_write_cstring(iter, KEY_LONGITUDE, longitude_to_store);  
+
+    requestWeather();
+  }
+
+
+  if(tick_time->tm_min % 60 == 0 && tick_time->tm_sec % 60 == 0 && is_in_sleep != true)
+  {
+    switch (vibrate_status)
+    {
+      case 0:
+        vibes_short_pulse();
+        break;
+      case 1:
+        vibes_long_pulse();
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+static void sync_error_callback(DictionaryResult dict_error, AppMessageResult app_message_error, void *context) 
+{
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d", app_message_error);
+}
+
+static void sync_tuple_changed_callback(const uint32_t key, const Tuple* t, const Tuple* old_tuple, void* context) 
+{
+  static char conditions_buffer[32];
+  static char location_buffer[32];
+
+  APP_LOG(APP_LOG_LEVEL_INFO, "AppMessage Received");
+
+  switch (key) {
+    case KEY_TEMPERATURE:
+      temp_to_store = (int)t->value->int32;
+      if(temp_to_store < 100)
+      {
+        snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", (int)t->value->int32);
+      }
+      else
+      {
+        snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", (int)t->value->int32);
+      }
+      break;
+
+    case KEY_CONDITIONS:
+      snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", t->value->cstring);
+      break;
+
+    case KEY_POS:
+      snprintf(location_buffer, sizeof(location_buffer), "%s", t->value->cstring);
+      break;
+
+    case KEY_BACKGROUND_COLOR:
+      snprintf(background_color_hex_char, sizeof(background_color_hex_char), "%s", t->value->cstring);    
+      break;
+
+    case KEY_FONT_COLOR:
+      snprintf(font_color_hex_char, sizeof(font_color_hex_char), "%s", t->value->cstring);    
+      break;
+
+    case KEY_VIBRATE:
+      switch((int)t->value->int32)
+      {
+        case 0:
+        vibrate_status = 0;
+        break;
+        case 1:
+        vibrate_status = 1;
+        break;
+        case 2:
+        vibrate_status = 2;
+        break;
+      }
+      break;
+    
+    case KEY_LOCATION:
+      switch((int)t->value->int32)
+      {
+        case 0:
+        location_status = 0;
+        break;
+        case 1:
+        location_status = 1;
+        break;
+        case 2:
+        location_status = 2;
+        break;
+      }
+      break;      
+      
+    case KEY_ZIP_CODE:
+      zip_code_int = (int)t->value->int32;
+      break;
+    
+    case KEY_MIDDLE_OUTLINE:
+      middle_outline_status = (int)t->value->int32;
+      break;
+      
+    case KEY_LATITUDE:
+      snprintf(latitude_to_store, sizeof(latitude_to_store), "%s", t->value->cstring);
+      break;
+      
+    case KEY_LONGITUDE:
+      snprintf(longitude_to_store, sizeof(longitude_to_store), "%s", t->value->cstring);
+      break;
+    
+    case KEY_UPDATE_INTERVAL:
+      update_interval_val = (int)t->value->int32;
+      break;
+    
+    case KEY_SLEEP:
+      sleep_status = (int)t->value->int32;
+      break;
+    
+    case KEY_SLEEP_START:
+      sleep_start_hour = (int)t->value->int32;
+      break;
+    
+    case KEY_SLEEP_END:
+      sleep_end_hour = (int)t->value->int32;
+      break;
+    
+    case KEY_BATTERY_METER:
+      battery_meter_status = (int)t->value->int32;
+      APP_LOG(APP_LOG_LEVEL_INFO, "battery_meter: %d", battery_meter_status);
+      break;
+    
+    default:
+      APP_LOG(APP_LOG_LEVEL_ERROR, "Key%d not recognized", (int)t->key);
+      break;
+  }
+
+  layer_mark_dirty(canvas_layer);
+  layer_mark_dirty(text_layer);
+
+  text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  if (is_in_sleep != true)    
+    text_layer_set_text(temperature_text_layer, temperature_buffer);
+
+  background_color_hex_int = HexStringToUInt(background_color_hex_char);
+  font_color_hex_int = HexStringToUInt(font_color_hex_char);
+  text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+
+  #ifdef PBL_COLOR
+    text_layer_set_text_color(month_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(day_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(temperature_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(sleep_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
+  #else
+    text_layer_set_text_color(month_text_layer, fontGColor);
+    text_layer_set_text_color(day_text_layer, fontGColor);
+    text_layer_set_text_color(temperature_text_layer, fontGColor);
+    text_layer_set_text_color(sleep_text_layer, fontGColor);
+    text_layer_set_text_color(day_of_week_text_layer, fontGColor);
+  #endif
+  
+  update_time();
+}
 
 static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
 {
@@ -241,23 +548,22 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
 
   static int corner_radius = 3;
 
-//graphics_context_set_fill_color(ctx, BACKGROUND_COLOR);
   background_color_hex_int = HexStringToUInt(background_color_hex_char);
   font_color_hex_int = HexStringToUInt(font_color_hex_char);
   
-#ifdef PBL_COLOR
-  graphics_context_set_fill_color(ctx, GColorFromHEX(background_color_hex_int));
-#else  
-  graphics_context_set_fill_color(ctx, backgroundGColor);
-#endif
+  #ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx, GColorFromHEX(background_color_hex_int));
+  #else  
+    graphics_context_set_fill_color(ctx, backgroundGColor);
+  #endif
 
-  graphics_fill_rect(ctx, GRect(0, 0, 144, 168), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(0, 0, 144, 168), 0, GCornerNone);
 
-#ifdef PBL_COLOR
-  graphics_context_set_fill_color(ctx, GColorFromHEX(font_color_hex_int));
-#else
-  graphics_context_set_fill_color(ctx, fontGColor);
-#endif
+  #ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx, GColorFromHEX(font_color_hex_int));
+  #else
+    graphics_context_set_fill_color(ctx, fontGColor);
+  #endif
 
   for (int x=0; x<3; x++)
   {
@@ -267,9 +573,6 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
       {
         if (digit_matrix[numbers_to_print[k]][y][x] == 1)
         {
-          int x_gap = x*x;
-          int y_gap = y*y;
-
           switch(digit_rounded_corners[numbers_to_print[k]][y][x])
             {
             case 0:
@@ -527,150 +830,6 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
   graphics_fill_rect(ctx, GRect(66, 78, 12, 12), 1, GCornersAll);  
 }
 
-static void update_time()
-{
-  time_t temp = time(NULL);
-  struct tm *tick_time = localtime(&temp);
-
-  int normal_hours = 0;
-
-  if (clock_is_24h_style())
-  {
-    numbers_to_print[0] = tick_time->tm_hour/10;
-    numbers_to_print[1] = tick_time->tm_hour-(10*numbers_to_print[0]);
-  }
-  else
-  {
-    normal_hours = tick_time->tm_hour;
-
-    if (tick_time->tm_hour > 12)
-    {    
-      normal_hours = tick_time->tm_hour-12;
-    }
-    if (tick_time->tm_hour == 0)
-    {
-      normal_hours = 12;
-    }
-
-    numbers_to_print[0] = (normal_hours/10);
-    numbers_to_print[1] = (normal_hours-(10*numbers_to_print[0]));
-  }
-
-  numbers_to_print[2] = tick_time->tm_min/10;
-  numbers_to_print[3] = tick_time->tm_min-(10*numbers_to_print[2]);
-
-  strftime(date_buffer, sizeof("**"), "%e",tick_time);
-  strftime(day_buffer, sizeof("***"), "%a",tick_time);
-
-  switch(tick_time->tm_mon)
-  {
-    case 0:
-      strcpy(month_buffer,"Jan");
-      break;
-    case 1:
-      strcpy(month_buffer,"Feb");
-      break;
-    case 2:
-      strcpy(month_buffer,"Mar");
-      break;
-    case 3:
-      strcpy(month_buffer,"Apr");
-      break;
-    case 4:
-      strcpy(month_buffer,"May");
-      break;
-    case 5:
-      strcpy(month_buffer,"June");
-      break;
-    case 6:
-      strcpy(month_buffer,"July");
-      break;
-    case 7:
-      strcpy(month_buffer,"Aug");
-      break;
-    case 8:
-      strcpy(month_buffer,"Sep");
-      break;
-    case 9:
-      strcpy(month_buffer,"Oct");
-      break;
-    case 10:
-      strcpy(month_buffer,"Nov");
-      break;
-    case 11:
-      strcpy(month_buffer,"Dec");
-      break;
-  }
-
-  text_layer_set_text(day_text_layer, date_buffer);
-  text_layer_set_text(day_of_week_text_layer, day_buffer);
-  text_layer_set_text(month_text_layer, month_buffer);
-
-  if(canvas_layer)
-    layer_mark_dirty(canvas_layer);
-
-  if (sleep_status == 1)
-  {
-    if( (tick_time->tm_hour >= sleep_start_hour || sleep_start_hour > sleep_end_hour) && (tick_time->tm_hour < sleep_end_hour))
-      is_in_sleep = true;
-    else
-      is_in_sleep = false;
-  }
-  else        
-  {
-    is_in_sleep = false;
-  }
-
-  if (is_in_sleep == true)
-  {    
-    text_layer_set_text(sleep_text_layer, "Sleep");
-    text_layer_set_text(temperature_text_layer, "");
-  }
-  else
-  {        
-    text_layer_set_text(sleep_text_layer, "");
-    if(temp_to_store < 100)
-    {
-      snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", temp_to_store);
-    }
-    else
-    {
-      snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", temp_to_store);
-    }
-    text_layer_set_text(temperature_text_layer, temperature_buffer);
-  }
-
-  if(tick_time->tm_min % update_interval_val == 0 && tick_time->tm_sec % 60 == 0 && is_in_sleep != true)
-  {
-    DictionaryIterator *iter;
-    app_message_outbox_begin(&iter);
-
-    dict_write_uint8(iter, unit, temp_units);  
-    dict_write_uint8(iter, location, location_status);  
-    dict_write_uint32(iter, zip_code, zip_code_int);  
-    dict_write_cstring(iter, latitude, latitude_to_store);
-    dict_write_cstring(iter, longitude, longitude_to_store);  
-
-    app_message_outbox_send();
-  }
-
-
-  if(tick_time->tm_min % 60 == 0 && tick_time->tm_sec % 60 == 0 && is_in_sleep != true)
-  {
-    switch (vibrate_status)
-    {
-      case 0:
-        vibes_short_pulse();
-        break;
-      case 1:
-        vibes_long_pulse();
-        break;
-      default:
-        break;
-    }
-  }
-}
-
 static void window_load(Window *window) 
 {
   Layer *window_layer = window_get_root_layer(window);
@@ -757,6 +916,18 @@ static void window_load(Window *window)
     text_layer_set_font(day_of_week_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   //layer_add_child(window_get_root_layer(window), text_layer_get_layer(day_of_week_text_layer));
     layer_add_child(text_layer, text_layer_get_layer(day_of_week_text_layer));
+
+  Tuplet initial_values[] = {
+    TupletInteger(KEY_TEMPERATURE, temp_to_store),
+    TupletCString(KEY_CONDITIONS, " "),
+    TupletCString(KEY_POS, " "),
+  };
+
+  app_sync_init(&s_sync, s_sync_buffer, sizeof(s_sync_buffer),
+      initial_values, ARRAY_LENGTH(initial_values),
+      sync_tuple_changed_callback, sync_error_callback, NULL);
+  
+  requestWeather();
 }
 
 static void window_unload(Window *window) 
@@ -776,236 +947,69 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed)
   }
 }
 
-static void inbox_received_callback(DictionaryIterator *iterator, void *context)
-{
-  static char conditions_buffer[32];
-  static char location_buffer[32];
-
-  Tuple *t = dict_read_first(iterator);
-  APP_LOG(APP_LOG_LEVEL_INFO, "AppMessage Received");
-
-  while(t != NULL) {
-    switch(t->key){
-      case unit:
-      switch((int)t->value->int32)
-      {
-        case 0:
-        temp_units = 0;
-        break;
-        case 1:
-        temp_units = 1;
-        break;
-        case 2:
-        temp_units = 2;
-        break;
-      }
-      break;
-      case KEY_TEMPERATURE:
-      temp_to_store = (int)t->value->int32;
-      if(temp_to_store < 100)
-      {
-        snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", (int)t->value->int32);
-      }
-      else
-      {
-        snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", (int)t->value->int32);
-      }
-      break;
-      case KEY_CONDITIONS:
-      snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", t->value->cstring);
-      break;
-      case KEY_LOCATION:
-      snprintf(location_buffer, sizeof(location_buffer), "%s", t->value->cstring);
-      break;
-      case background_color:
-      snprintf(background_color_hex_char, sizeof(background_color_hex_char), "%s", t->value->cstring);    
-      break;
-      case font_color:
-      snprintf(font_color_hex_char, sizeof(font_color_hex_char), "%s", t->value->cstring);    
-      break;
-      case vibrate:
-      switch((int)t->value->int32)
-      {
-        case 0:
-        vibrate_status = 0;
-        break;
-        case 1:
-        vibrate_status = 1;
-        break;
-        case 2:
-        vibrate_status = 2;
-        break;
-      }
-      break;
-      case location:
-      switch((int)t->value->int32)
-      {
-        case 0:
-        location_status = 0;
-        break;
-        case 1:
-        location_status = 1;
-        break;
-        case 2:
-        location_status = 2;
-        break;
-      }
-      break;      
-      case zip_code:
-      zip_code_int = (int)t->value->int32;
-      break;
-      case middle_outline:
-      middle_outline_status = (int)t->value->int32;
-      break;
-      case latitude:
-      snprintf(latitude_to_store, sizeof(latitude_to_store), "%s", t->value->cstring);
-      break;
-      case longitude:
-      snprintf(longitude_to_store, sizeof(longitude_to_store), "%s", t->value->cstring);
-      break;
-      case update_interval:
-      update_interval_val = (int)t->value->int32;
-      break;
-      case sleep:
-      sleep_status = (int)t->value->int32;
-      break;
-      case sleep_start:
-      sleep_start_hour = (int)t->value->int32;
-      break;
-      case sleep_end:
-      sleep_end_hour = (int)t->value->int32;
-      break;
-      case battery_meter:
-      battery_meter_status = (int)t->value->int32;
-      APP_LOG(APP_LOG_LEVEL_INFO, "battery_meter: %d", battery_meter_status);
-      break;
-      default:
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Key%d not recognized", (int)t->key);
-      break;
-    }
-    t = dict_read_next(iterator);
-  }
-
-  layer_mark_dirty(canvas_layer);
-  layer_mark_dirty(text_layer);
-
-  text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  if (is_in_sleep != true)    
-    text_layer_set_text(temperature_text_layer, temperature_buffer);
-
-  background_color_hex_int = HexStringToUInt(background_color_hex_char);
-  font_color_hex_int = HexStringToUInt(font_color_hex_char);
-  text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-
-#ifdef PBL_COLOR
-  text_layer_set_text_color(month_text_layer, GColorFromHEX(font_color_hex_int));
-  text_layer_set_text_color(day_text_layer, GColorFromHEX(font_color_hex_int));
-  text_layer_set_text_color(temperature_text_layer, GColorFromHEX(font_color_hex_int));
-  text_layer_set_text_color(sleep_text_layer, GColorFromHEX(font_color_hex_int));
-  text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
-#else
-  text_layer_set_text_color(month_text_layer, fontGColor);
-  text_layer_set_text_color(day_text_layer, fontGColor);
-  text_layer_set_text_color(temperature_text_layer, fontGColor);
-  text_layer_set_text_color(sleep_text_layer, fontGColor);
-  text_layer_set_text_color(day_of_week_text_layer, fontGColor);
-#endif
-  update_time();
-}
-
-static void inbox_dropped_callback(AppMessageResult reason, void *context)
-{
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped");
-}
-
-static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context)
-{
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed");
-
-  psleep(100);
-
-  DictionaryIterator *iter;
-  app_message_outbox_begin(&iter);
-
-  dict_write_uint8(iter, unit, temp_units);  
-  dict_write_uint8(iter, location, location_status);  
-  dict_write_uint32(iter, zip_code, zip_code_int);  
-  dict_write_cstring(iter, latitude, latitude_to_store);
-  dict_write_cstring(iter, longitude, longitude_to_store);  
-
-  app_message_outbox_send();
-
-}
-
-static void outbox_sent_callback(DictionaryIterator *iterator, void *context)
-{
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send success!");
-}
-
 static void init(void) 
-{  
+{
   if (persist_exists(KEY_TEMPERATURE))
   {
     temp_to_store = persist_read_int(KEY_TEMPERATURE);
   }
 
-  if (persist_exists(unit))
+  if (persist_exists(KEY_UNIT))
   {
-    temp_units = persist_read_int(unit);
+    temp_units = persist_read_int(KEY_UNIT);
   }
-
-  if (persist_exists(vibrate))
+  if (persist_exists(KEY_VIBRATE))
   {
-    vibrate_status = persist_read_int(vibrate);
+    vibrate_status = persist_read_int(KEY_VIBRATE);
   }
-  if (persist_exists(location))
+  if (persist_exists(KEY_LOCATION))
   {
-    location_status = persist_read_int(location);
+    location_status = persist_read_int(KEY_LOCATION);
   }
-  if (persist_exists(zip_code))
+  if (persist_exists(KEY_ZIP_CODE))
   {
-    zip_code_int = persist_read_int(zip_code);
+    zip_code_int = persist_read_int(KEY_ZIP_CODE);
   }
-  if (persist_exists(background_color))
+  if (persist_exists(KEY_BACKGROUND_COLOR))
   {
-    persist_read_string(background_color, background_color_hex_char, 10);
+    persist_read_string(KEY_BACKGROUND_COLOR, background_color_hex_char, 10);
   }
-  if (persist_exists(font_color))
+  if (persist_exists(KEY_FONT_COLOR))
   {
-    persist_read_string(font_color, font_color_hex_char, 10);
+    persist_read_string(KEY_FONT_COLOR, font_color_hex_char, 10);
   }
-  if (persist_exists(middle_outline))
+  if (persist_exists(KEY_MIDDLE_OUTLINE))
   {
-    middle_outline_status = persist_read_int(middle_outline);
+    middle_outline_status = persist_read_int(KEY_MIDDLE_OUTLINE);
   }
-  if (persist_exists(latitude))
+  if (persist_exists(KEY_LATITUDE))
   {
-    persist_read_string(latitude, latitude_to_store, 15);
+    persist_read_string(KEY_LATITUDE, latitude_to_store, 15);
   }
-  if (persist_exists(longitude))
+  if (persist_exists(KEY_LONGITUDE))
   {
-    persist_read_string(longitude, longitude_to_store, 15);
+    persist_read_string(KEY_LONGITUDE, longitude_to_store, 15);
   }  
-  if (persist_exists(update_interval))
+  if (persist_exists(KEY_UPDATE_INTERVAL))
   {
-    update_interval_val = persist_read_int(update_interval);
-  }
-  if (persist_exists(sleep))
-  {
-    sleep_status = persist_read_int(sleep);
+    update_interval_val = persist_read_int(KEY_UPDATE_INTERVAL);
   }
 
-  if (persist_exists(sleep_start))
+  if (persist_exists(KEY_SLEEP))
   {
-    sleep_start_hour = persist_read_int(sleep_start);
+    sleep_status = persist_read_int(KEY_SLEEP);
   }
-  if (persist_exists(sleep_end))
+  if (persist_exists(KEY_SLEEP_START))
   {
-    sleep_end_hour = persist_read_int(sleep_end);
+    sleep_start_hour = persist_read_int(KEY_SLEEP_START);
   }
-  if (persist_exists(battery_meter))
+  if (persist_exists(KEY_SLEEP_END))
   {
-    battery_meter_status = persist_read_int(battery_meter);
+    sleep_end_hour = persist_read_int(KEY_SLEEP_END);
+  }
+  if (persist_exists(KEY_BATTERY_METER))
+  {
+    battery_meter_status = persist_read_int(KEY_BATTERY_METER);
   }
 
   background_color_hex_int = HexStringToUInt(background_color_hex_char);
@@ -1019,6 +1023,7 @@ static void init(void)
     case 16777215: 
         backgroundGColor = GColorWhite;
         break;
+
     }
 
   switch(font_color_hex_int)
@@ -1040,50 +1045,36 @@ static void init(void)
   window_stack_push(window, true);
 
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-//bluetooth_connection_service_subscribe(BlutoothConnectionHandler);
-
-  app_message_register_inbox_received(inbox_received_callback);
-  app_message_register_inbox_dropped(inbox_dropped_callback);
-  app_message_register_outbox_failed(outbox_failed_callback);
-  app_message_register_outbox_sent(outbox_sent_callback);
+  //bluetooth_connection_service_subscribe(BlutoothConnectionHandler);
 
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
-
-  DictionaryIterator *iter;
-  app_message_outbox_begin(&iter);
-
-  dict_write_uint8(iter, unit, temp_units);  
-  dict_write_uint8(iter, location, location_status);  
-  dict_write_uint32(iter, zip_code, zip_code_int);  
-  dict_write_cstring(iter, latitude, latitude_to_store);
-  dict_write_cstring(iter, longitude, longitude_to_store);  
-
-  app_message_outbox_send();
 
   update_time();
 }
 
 static void deinit(void) 
-{  
-  persist_write_int(KEY_TEMPERATURE, (temp_to_store));
-  persist_write_int(unit, (temp_units));
-  persist_write_int(vibrate, (vibrate_status));
-  persist_write_int(location, (location_status));
-  persist_write_int(zip_code, (zip_code_int));
-  persist_write_string(background_color, (background_color_hex_char));
-  persist_write_string(font_color, (font_color_hex_char));
-  persist_write_int(middle_outline, (middle_outline_status));
-  persist_write_string(latitude, (latitude_to_store));
-  persist_write_string(longitude, (longitude_to_store));
-  persist_write_int(update_interval, (update_interval_val));
-  persist_write_int(sleep, (sleep_status));
-  persist_write_int(sleep_start, (sleep_start_hour));
-  persist_write_int(sleep_end, (sleep_end_hour));
-  persist_write_int(battery_meter, (battery_meter_status));
+{
+  persist_write_int(KEY_TEMPERATURE, temp_to_store);
+  persist_write_int(KEY_UNIT, temp_units);
+  persist_write_int(KEY_VIBRATE, vibrate_status);
+  persist_write_int(KEY_LOCATION, location_status);
+  persist_write_int(KEY_ZIP_CODE, zip_code_int);
+  persist_write_string(KEY_BACKGROUND_COLOR, background_color_hex_char);
+  persist_write_string(KEY_FONT_COLOR, font_color_hex_char);
+  persist_write_int(KEY_MIDDLE_OUTLINE, middle_outline_status);
+  persist_write_string(KEY_LATITUDE, latitude_to_store);
+  persist_write_string(KEY_LONGITUDE, longitude_to_store);
+  persist_write_int(KEY_UPDATE_INTERVAL, update_interval_val);
+  persist_write_int(KEY_SLEEP, sleep_status);
+  persist_write_int(KEY_SLEEP_START, sleep_start_hour);
+  persist_write_int(KEY_SLEEP_END, sleep_end_hour);
+  persist_write_int(KEY_BATTERY_METER, battery_meter_status);
 
   window_destroy(window);
   tick_timer_service_unsubscribe();
-//bluetooth_connection_service_unsubscribe();
+  //bluetooth_connection_service_unsubscribe();
+
+  app_sync_deinit(&s_sync);
 }
 
 int main(void) 
