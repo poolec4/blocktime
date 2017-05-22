@@ -1,6 +1,8 @@
 #include <pebble.h>
 #include <ctype.h>
 
+#define LOCATION_DELAY 4500
+
 char background_color_hex_char[10] = "000000"; 
 char font_color_hex_char[10] = "FFFFFF";
 
@@ -22,6 +24,8 @@ char latitude_to_store[15] = "0";
 char longitude_to_store[15] = "0";
 
 bool is_in_sleep = false;
+bool show_bluetooth_status = true;
+bool hide_location;
 
 #define KEY_TEMPERATURE 0
 #define KEY_CONDITIONS 1
@@ -42,26 +46,29 @@ bool is_in_sleep = false;
 #define KEY_SLEEP_START 14
 #define KEY_SLEEP_END 15
 #define KEY_BATTERY_METER 16
-
-static AppSync s_sync;
-static uint8_t s_sync_buffer[500];
-
-#define MyTupletCString(_key, _cstring) \
-((const Tuplet) { .type = TUPLE_CSTRING, .key = _key, .cstring = { .data = _cstring, .length = strlen(_cstring) + 1 }})
+#define KEY_JSREADY 17
 
 static Window *window;
 static Layer *canvas_layer;
 static Layer *text_layer;
+static Layer *weather_layer;
+static TextLayer *location_text_layer;
 static TextLayer *month_text_layer;
 static TextLayer *day_text_layer;
 static TextLayer *temperature_text_layer;
 static TextLayer *day_of_week_text_layer;
 static TextLayer *sleep_text_layer;
+static bool js_ready;
 
+static AppTimer *location_timer;
+
+char* months[] = {"Jan","Feb","Mar","Apr","May","June","July","Aug","Sep","Oct","Nov","Dec"};
 static char day_buffer[10];
 static char date_buffer[10];
 static char month_buffer[10];
 static char temperature_buffer[8];
+static char conditions_buffer[100];
+static char location_buffer[100];
 
 GColor backgroundGColor;
 GColor fontGColor;
@@ -240,17 +247,16 @@ unsigned int HexStringToUInt(char const* hexstring)
 
 static void requestWeather(void) 
 {
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "requestWeather()");
+
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
 
-  if (!iter) {
-    // Error creating outbound message
-    return;
-  }
-
-  int value = 1;
-  dict_write_int(iter, 1, &value, sizeof(int), true);
-  dict_write_end(iter);
+  dict_write_uint32(iter, KEY_UNIT, temp_units);  
+  dict_write_uint32(iter, KEY_LOCATION, location_status);  
+  dict_write_uint32(iter, KEY_ZIP_CODE, zip_code_int);  
+  dict_write_cstring(iter, KEY_LATITUDE, latitude_to_store);
+  dict_write_cstring(iter, KEY_LONGITUDE, longitude_to_store);  
 
   app_message_outbox_send();
 }
@@ -293,46 +299,8 @@ static void update_time()
 
   strftime(date_buffer, sizeof("**"), "%e",tick_time);
   strftime(day_buffer, sizeof("***"), "%a",tick_time);
-
-  switch(tick_time->tm_mon)
-  {
-    case 0:
-      strcpy(month_buffer,"Jan");
-      break;
-    case 1:
-      strcpy(month_buffer,"Feb");
-      break;
-    case 2:
-      strcpy(month_buffer,"Mar");
-      break;
-    case 3:
-      strcpy(month_buffer,"Apr");
-      break;
-    case 4:
-      strcpy(month_buffer,"May");
-      break;
-    case 5:
-      strcpy(month_buffer,"June");
-      break;
-    case 6:
-      strcpy(month_buffer,"July");
-      break;
-    case 7:
-      strcpy(month_buffer,"Aug");
-      break;
-    case 8:
-      strcpy(month_buffer,"Sep");
-      break;
-    case 9:
-      strcpy(month_buffer,"Oct");
-      break;
-    case 10:
-      strcpy(month_buffer,"Nov");
-      break;
-    case 11:
-      strcpy(month_buffer,"Dec");
-      break;
-  }
+  
+  strcpy(month_buffer, months[tick_time->tm_mon]);
 
   text_layer_set_text(day_text_layer, date_buffer);
   text_layer_set_text(day_of_week_text_layer, day_buffer);
@@ -353,13 +321,13 @@ static void update_time()
     is_in_sleep = false;
   }
 
-  if (is_in_sleep == true)
-  {    
-    text_layer_set_text(sleep_text_layer, "Sleep");
-    text_layer_set_text(temperature_text_layer, "");
-  }
-  else
-  {        
+  // if (is_in_sleep == true)
+  // {    
+  //   text_layer_set_text(sleep_text_layer, "Sleep");
+  //   text_layer_set_text(temperature_text_layer, "");
+  // }
+  // else
+  // {        
     text_layer_set_text(sleep_text_layer, "");
     if(temp_to_store < 100)
     {
@@ -370,19 +338,10 @@ static void update_time()
       snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", temp_to_store);
     }
     text_layer_set_text(temperature_text_layer, temperature_buffer);
-  }
+  // }
 
   if(tick_time->tm_min % update_interval_val == 0 && tick_time->tm_sec % 60 == 0 && is_in_sleep != true)
   {
-    DictionaryIterator *iter;
-    app_message_outbox_begin(&iter);
-
-    dict_write_uint8(iter, KEY_UNIT, temp_units);  
-    dict_write_uint8(iter, KEY_LOCATION, location_status);  
-    dict_write_uint32(iter, KEY_ZIP_CODE, zip_code_int);  
-    dict_write_cstring(iter, KEY_LATITUDE, latitude_to_store);
-    dict_write_cstring(iter, KEY_LONGITUDE, longitude_to_store);  
-
     requestWeather();
   }
 
@@ -403,122 +362,163 @@ static void update_time()
   }
 }
 
-static void sync_error_callback(DictionaryResult dict_error, AppMessageResult app_message_error, void *context) 
+static void endLocationDisplay()
 {
-  if (app_message_error != 0)
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d", app_message_error);
+  if(hide_location == true)
+  {
+    show_bluetooth_status = true;
+    layer_mark_dirty(canvas_layer);
+
+    layer_set_hidden(text_layer_get_layer(temperature_text_layer), false);
+    layer_set_hidden(text_layer_get_layer(day_text_layer), false);
+    layer_set_hidden(text_layer_get_layer(month_text_layer), false);
+    layer_set_hidden(text_layer_get_layer(day_of_week_text_layer), false);
+
+    layer_set_hidden(text_layer_get_layer(location_text_layer), true);
+  }
+  else
+  {
+    text_layer_set_text(location_text_layer, location_buffer);
+    hide_location = true;
+  }
 }
 
-static void sync_tuple_changed_callback(const uint32_t key, const Tuple* t, const Tuple* old_tuple, void* context) 
-{
-  static char conditions_buffer[32];
-  static char location_buffer[32];
+static void inbox_received_callback(DictionaryIterator *iterator, void *context)
+{  
+  Tuple *ready = dict_find(iterator, KEY_JSREADY);
 
-  APP_LOG(APP_LOG_LEVEL_INFO, "AppMessage of key %d Received", (int)t->key);
+  if(ready && js_ready != true)
+  {
+    APP_LOG(APP_LOG_LEVEL_INFO, "JS ready!");
+    js_ready = true;
+    requestWeather();
+  }
+  else
+  {
+    Tuple *t = dict_read_first(iterator);
 
-  switch (key) {
-    case KEY_TEMPERATURE:
-      temp_to_store = (int)t->value->int32;
-      if(temp_to_store < 100)
-        snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", (int)t->value->int32);
-      else
-        snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", (int)t->value->int32);
-      break;
+    APP_LOG(APP_LOG_LEVEL_INFO, "AppMessage Received");
 
-    case KEY_CONDITIONS:
-      snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", t->value->cstring);
-      break;
+    while(t != NULL) {
+      switch (t->key) {
+        case KEY_TEMPERATURE:
+          temp_to_store = (int)t->value->int32;
+          if(temp_to_store < 100)
+            snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°", (int)t->value->int32);
+          else
+            snprintf(temperature_buffer, sizeof(temperature_buffer), "%d", (int)t->value->int32);
+          break;
 
-    case KEY_POS:
-      snprintf(location_buffer, sizeof(location_buffer), "%s", t->value->cstring);
-      break;
+        case KEY_CONDITIONS:
+          snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", t->value->cstring);
+          break;
 
-    case KEY_BACKGROUND_COLOR:
-      snprintf(background_color_hex_char, sizeof(background_color_hex_char), "%s", t->value->cstring);    
-      break;
+        case KEY_POS:
+          snprintf(location_buffer, sizeof(location_buffer), "%s", t->value->cstring);
+          break;
 
-    case KEY_FONT_COLOR:
-      snprintf(font_color_hex_char, sizeof(font_color_hex_char), "%s", t->value->cstring);    
-      break;
+        case KEY_BACKGROUND_COLOR:
+          snprintf(background_color_hex_char, sizeof(background_color_hex_char), "%s", t->value->cstring);    
+          break;
 
-    case KEY_VIBRATE:
-      vibrate_status = (int)t->value->int32;
-      break;
+        case KEY_FONT_COLOR:
+          snprintf(font_color_hex_char, sizeof(font_color_hex_char), "%s", t->value->cstring);    
+          break;
 
-    case KEY_UNIT:
-      temp_units = (int)t->value->int32;
-      break;
-    
-    case KEY_LOCATION:
-      location_status = (int)t->value->int32;
-      break;      
-      
-    case KEY_ZIP_CODE:
-      zip_code_int = (int)t->value->int32;
-      break;
-    
-    case KEY_MIDDLE_OUTLINE:
-      middle_outline_status = (int)t->value->int32;
-      break;
-      
-    case KEY_LATITUDE:
-      snprintf(latitude_to_store, sizeof(latitude_to_store), "%s", t->value->cstring);
-      break;
-      
-    case KEY_LONGITUDE:
-      snprintf(longitude_to_store, sizeof(longitude_to_store), "%s", t->value->cstring);
-      break;
-    
-    case KEY_UPDATE_INTERVAL:
-      update_interval_val = (int)t->value->int32;
-      break;
-    
-    case KEY_SLEEP:
-      sleep_status = (int)t->value->int32;
-      break;
-    
-    case KEY_SLEEP_START:
-      sleep_start_hour = (int)t->value->int32;
-      break;
-    
-    case KEY_SLEEP_END:
-      sleep_end_hour = (int)t->value->int32;
-      break;
-    
-    case KEY_BATTERY_METER:
-      battery_meter_status = (int)t->value->int32;
-      APP_LOG(APP_LOG_LEVEL_INFO, "battery_meter: %d", battery_meter_status);
-      break;
-    
-    default:
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Key%d not recognized", (int)t->key);
-      break;
+        case KEY_VIBRATE:
+          vibrate_status = (int)t->value->int32;
+          break;
+
+        case KEY_UNIT:
+          temp_units = (int)t->value->int32;
+          break;
+        
+        case KEY_LOCATION:
+          location_status = (int)t->value->int32;
+          
+          //hide temp,day,month,day,bluetooth
+          layer_set_hidden(text_layer_get_layer(temperature_text_layer), true);
+          layer_set_hidden(text_layer_get_layer(day_text_layer), true);
+          layer_set_hidden(text_layer_get_layer(month_text_layer), true);
+          layer_set_hidden(text_layer_get_layer(day_of_week_text_layer), true);
+          show_bluetooth_status = false;
+          layer_mark_dirty(canvas_layer);
+
+          layer_set_hidden(text_layer_get_layer(location_text_layer), false);
+
+          text_layer_set_text(location_text_layer, "Weather Location:");
+
+          //start timer
+          hide_location = false;
+          location_timer = app_timer_register(LOCATION_DELAY*0.4, endLocationDisplay, NULL);
+          location_timer = app_timer_register(LOCATION_DELAY, endLocationDisplay, NULL);
+
+          break;      
+          
+        case KEY_ZIP_CODE:
+          zip_code_int = (int)t->value->int32;
+          break;
+        
+        case KEY_MIDDLE_OUTLINE:
+          middle_outline_status = (int)t->value->int32;
+          break;
+          
+        case KEY_LATITUDE:
+          snprintf(latitude_to_store, sizeof(latitude_to_store), "%s", t->value->cstring);
+          break;
+          
+        case KEY_LONGITUDE:
+          snprintf(longitude_to_store, sizeof(longitude_to_store), "%s", t->value->cstring);
+          break;
+        
+        case KEY_UPDATE_INTERVAL:
+          update_interval_val = (int)t->value->int32;
+          break;
+        
+        case KEY_SLEEP:
+          sleep_status = (int)t->value->int32;
+          break;
+        
+        case KEY_SLEEP_START:
+          sleep_start_hour = (int)t->value->int32;
+          break;
+        
+        case KEY_SLEEP_END:
+          sleep_end_hour = (int)t->value->int32;
+          break;
+        
+        case KEY_BATTERY_METER:
+          battery_meter_status = (int)t->value->int32;
+          APP_LOG(APP_LOG_LEVEL_INFO, "battery_meter: %d", battery_meter_status);
+          break;
+        
+        default:
+          APP_LOG(APP_LOG_LEVEL_ERROR, "Key%d not recognized", (int)t->key);
+          break;
+      }
+      t = dict_read_next(iterator);
+    }
   }
 
-  text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  if (is_in_sleep != true)    
-    text_layer_set_text(temperature_text_layer, temperature_buffer);
-
-  text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-
-  #ifdef PBL_COLOR
-    text_layer_set_text_color(month_text_layer, GColorFromHEX(font_color_hex_int));
-    text_layer_set_text_color(day_text_layer, GColorFromHEX(font_color_hex_int));
-    text_layer_set_text_color(temperature_text_layer, GColorFromHEX(font_color_hex_int));
-    text_layer_set_text_color(sleep_text_layer, GColorFromHEX(font_color_hex_int));
-    text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
-  #else
-    text_layer_set_text_color(month_text_layer, fontGColor);
-    text_layer_set_text_color(day_text_layer, fontGColor);
-    text_layer_set_text_color(temperature_text_layer, fontGColor);
-    text_layer_set_text_color(sleep_text_layer, fontGColor);
-    text_layer_set_text_color(day_of_week_text_layer, fontGColor);
-  #endif
-  
   layer_mark_dirty(canvas_layer);
   layer_mark_dirty(text_layer);
 
-  update_time();
+  //update_time();
+}
+
+static void inbox_dropped_callback(AppMessageResult reason, void *context)
+{ 
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped");
+}
+
+static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context)
+{
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed");
+}
+
+static void outbox_sent_callback(DictionaryIterator *iterator, void *context)
+{
+  APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
 }
 
 static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
@@ -733,7 +733,7 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
       graphics_context_set_fill_color(ctx, fontGColor);
       #endif
       graphics_fill_rect(ctx, GRect(69, 50, 6, x_length_1), 0, GCornersAll); 
-      graphics_fill_rect(ctx, GRect(69, 118-x_length_1, 6, x_length_1), 0, GCornersAll);   
+      graphics_fill_rect(ctx, GRect(69, 119-x_length_1, 6, x_length_1), 0, GCornersAll);   
     }
 
     if (charge_state.is_charging)
@@ -806,34 +806,37 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
       #endif
     graphics_fill_rect(ctx, GRect(69, 143, 6, 25), 0, GCornersAll);  
   }
-
-  if (middle_outline_status == 1)
+  
+  if(show_bluetooth_status == true)
   {
-    #ifdef PBL_COLOR
-      graphics_context_set_fill_color(ctx, GColorBlack);
-    #else
-      graphics_context_set_fill_color(ctx, fontGColor);
-    #endif
-      graphics_fill_rect(ctx, GRect(65, 77, 14, 14), 1, GCornersAll);  
-  }
-
-  if (bluetooth_connection_service_peek())
-  {
-    #ifdef PBL_COLOR
-      graphics_context_set_fill_color(ctx, GColorBlueMoon);
-    #else
-      graphics_context_set_fill_color(ctx, fontGColor);
-    #endif
-  }
-  else
-  {
-    #ifdef PBL_COLOR
-    graphics_context_set_fill_color(ctx, GColorRed);
+    if (middle_outline_status == 1)
+    {
+      #ifdef PBL_COLOR
+        graphics_context_set_fill_color(ctx, GColorBlack);
       #else
-    graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_context_set_fill_color(ctx, fontGColor);
       #endif
+        graphics_fill_rect(ctx, GRect(65, 77, 14, 14), 1, GCornersAll);  
+    }
+
+    if (bluetooth_connection_service_peek())
+    {
+        #ifdef PBL_COLOR
+          graphics_context_set_fill_color(ctx, GColorBlueMoon);
+        #else
+          graphics_context_set_fill_color(ctx, fontGColor);
+        #endif
+    }
+    else
+    {
+      #ifdef PBL_COLOR
+      graphics_context_set_fill_color(ctx, GColorRed);
+        #else
+      graphics_context_set_fill_color(ctx, backgroundGColor);
+        #endif
+    }
+    graphics_fill_rect(ctx, GRect(66, 78, 12, 12), 1, GCornersAll);  
   }
-  graphics_fill_rect(ctx, GRect(66, 78, 12, 12), 1, GCornersAll);  
 
   #ifdef PBL_COLOR
     text_layer_set_text_color(month_text_layer, GColorFromHEX(font_color_hex_int));
@@ -848,12 +851,35 @@ static void canvas_layer_update_proc(Layer *this_layer, GContext *ctx)
     text_layer_set_text_color(sleep_text_layer, fontGColor);
     text_layer_set_text_color(day_of_week_text_layer, fontGColor);
   #endif
+
+  text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  if (is_in_sleep != true)    
+    text_layer_set_text(temperature_text_layer, temperature_buffer);
+
+  text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+
+  #ifdef PBL_COLOR
+    text_layer_set_text_color(month_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(day_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(temperature_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(sleep_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(day_of_week_text_layer, GColorFromHEX(font_color_hex_int));
+    text_layer_set_text_color(location_text_layer, GColorFromHEX(font_color_hex_int));
+  #else
+    text_layer_set_text_color(month_text_layer, fontGColor);
+    text_layer_set_text_color(day_text_layer, fontGColor);
+    text_layer_set_text_color(temperature_text_layer, fontGColor);
+    text_layer_set_text_color(sleep_text_layer, fontGColor);
+    text_layer_set_text_color(day_of_week_text_layer, fontGColor);
+    text_layer_set_text_color(location_text_layer, fontGColor);
+  #endif
 }
 
 static void window_load(Window *window) 
 {
   Layer *window_layer = window_get_root_layer(window);
   text_layer = window_get_root_layer(window);
+  weather_layer = window_get_root_layer(window);
 
   canvas_layer = layer_create(GRect(0, 0, 144, 168));
   layer_add_child(window_layer, canvas_layer);
@@ -862,86 +888,55 @@ static void window_load(Window *window)
   month_text_layer = text_layer_create(GRect(82, 67, 72, 30));
   text_layer_set_text_alignment(month_text_layer, GTextAlignmentLeft);
   text_layer_set_background_color(month_text_layer, GColorClear);
+  text_layer_set_font(month_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  layer_add_child(text_layer, text_layer_get_layer(month_text_layer));
 
-  
-    text_layer_set_font(month_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  //layer_add_child(window_get_root_layer(window), text_layer_get_layer(month_text_layer));
-    layer_add_child(text_layer, text_layer_get_layer(month_text_layer));
+  day_text_layer = text_layer_create(GRect(76, 67, 64, 30));
+  text_layer_set_text_alignment(day_text_layer, GTextAlignmentRight);
+  text_layer_set_background_color(day_text_layer, GColorClear);
+  text_layer_set_font(day_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  layer_add_child(text_layer, text_layer_get_layer(day_text_layer));
 
-    day_text_layer = text_layer_create(GRect(76, 67, 64, 30));
-    text_layer_set_text_alignment(day_text_layer, GTextAlignmentRight);
-    text_layer_set_background_color(day_text_layer, GColorClear);
-  
-    text_layer_set_font(day_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  //layer_add_child(window_get_root_layer(window), text_layer_get_layer(day_text_layer));
-    layer_add_child(text_layer, text_layer_get_layer(day_text_layer));
+  temperature_text_layer = text_layer_create(GRect(2, 67, 64, 30));
+  text_layer_set_text_alignment(temperature_text_layer, GTextAlignmentLeft);
+  text_layer_set_background_color(temperature_text_layer, GColorClear);
+  text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
 
-    temperature_text_layer = text_layer_create(GRect(2, 67, 64, 30));
-    text_layer_set_text_alignment(temperature_text_layer, GTextAlignmentLeft);
-    text_layer_set_background_color(temperature_text_layer, GColorClear);
-  
-    text_layer_set_font(temperature_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
+  static char temp[10];
 
-    static char temp[10];
+  if(temp_to_store < 100)
+  {
+    snprintf(temp, sizeof(temp), "%d°", temp_to_store);
+  }
+  else if (temp_to_store != 0)
+  {
+    snprintf(temp, sizeof(temp), "%d", temp_to_store);
+  }
+  else if (temp_to_store == 0)
+  {
+    snprintf(temp, sizeof(temp), "Load");
+  }
 
-    if(temp_to_store < 100)
-    {
-      snprintf(temp, sizeof(temp), "%d°", temp_to_store);
-    }
-    else
-    {
-      snprintf(temp, sizeof(temp), "%d", temp_to_store);
-    }
+  text_layer_set_text(temperature_text_layer, temp);
+  layer_add_child(text_layer, text_layer_get_layer(temperature_text_layer));
 
-    if (temp_to_store == 0)
-    {
-      snprintf(temp, sizeof(temp), "Load");
-    }
+  sleep_text_layer = text_layer_create(GRect(1, 71, 64, 30));
+  text_layer_set_text_alignment(sleep_text_layer, GTextAlignmentLeft);
+  text_layer_set_background_color(sleep_text_layer, GColorClear);
+  text_layer_set_font(sleep_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
+  layer_add_child(text_layer, text_layer_get_layer(sleep_text_layer));
 
-    text_layer_set_text(temperature_text_layer, temp);
-  //layer_add_child(window_get_root_layer(window), text_layer_get_layer(temperature_text_layer));
-    layer_add_child(text_layer, text_layer_get_layer(temperature_text_layer));
+  day_of_week_text_layer = text_layer_create(GRect(0, 67, 62, 30));
+  text_layer_set_text_alignment(day_of_week_text_layer, GTextAlignmentRight);
+  text_layer_set_background_color(day_of_week_text_layer, GColorClear);
+  text_layer_set_font(day_of_week_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  layer_add_child(text_layer, text_layer_get_layer(day_of_week_text_layer));
 
-    sleep_text_layer = text_layer_create(GRect(1, 71, 64, 30));
-    text_layer_set_text_alignment(sleep_text_layer, GTextAlignmentLeft);
-    text_layer_set_background_color(sleep_text_layer, GColorClear);
-  
-    text_layer_set_font(sleep_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
-    layer_add_child(text_layer, text_layer_get_layer(sleep_text_layer));
-
-    day_of_week_text_layer = text_layer_create(GRect(0, 67, 62, 30));
-    text_layer_set_text_alignment(day_of_week_text_layer, GTextAlignmentRight);
-    text_layer_set_background_color(day_of_week_text_layer, GColorClear);
-  
-    text_layer_set_font(day_of_week_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  //layer_add_child(window_get_root_layer(window), text_layer_get_layer(day_of_week_text_layer));
-    layer_add_child(text_layer, text_layer_get_layer(day_of_week_text_layer));
-
-  Tuplet initial_values[] = {
-    TupletInteger(KEY_TEMPERATURE, temp_to_store),
-    TupletCString(KEY_CONDITIONS, " "),
-    TupletCString(KEY_POS, " "),
-    MyTupletCString(KEY_BACKGROUND_COLOR, background_color_hex_char),
-    MyTupletCString(KEY_FONT_COLOR, font_color_hex_char),
-    TupletInteger(KEY_VIBRATE, vibrate_status),
-    TupletInteger(KEY_UNIT, temp_units),
-    TupletInteger(KEY_LOCATION, location_status),
-    TupletInteger(KEY_ZIP_CODE, zip_code_int),
-    TupletInteger(KEY_MIDDLE_OUTLINE, middle_outline_status),
-    MyTupletCString(KEY_LATITUDE, latitude_to_store),
-    MyTupletCString(KEY_LONGITUDE, longitude_to_store),
-    TupletInteger(KEY_UPDATE_INTERVAL, update_interval_val),
-    TupletInteger(KEY_SLEEP, sleep_status),
-    TupletInteger(KEY_SLEEP_START, sleep_start_hour),
-    TupletInteger(KEY_SLEEP_END, sleep_end_hour),
-    TupletInteger(KEY_BATTERY_METER, battery_meter_status)
-  };
-
-  app_sync_init(&s_sync, s_sync_buffer, sizeof(s_sync_buffer),
-      initial_values, ARRAY_LENGTH(initial_values),
-      sync_tuple_changed_callback, sync_error_callback, NULL);
-  
-  requestWeather();
+  location_text_layer = text_layer_create(GRect(2, 67, 140, 30));
+  text_layer_set_text_alignment(location_text_layer, GTextAlignmentCenter);
+  text_layer_set_background_color(location_text_layer, GColorClear);
+  text_layer_set_font(location_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  layer_add_child(weather_layer, text_layer_get_layer(location_text_layer));
 }
 
 static void window_unload(Window *window) 
@@ -951,6 +946,8 @@ static void window_unload(Window *window)
   text_layer_destroy(day_text_layer);
   text_layer_destroy(temperature_text_layer);
   text_layer_destroy(day_of_week_text_layer);
+  text_layer_destroy(sleep_text_layer);
+  text_layer_destroy(location_text_layer);
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) 
@@ -1040,7 +1037,16 @@ static void init(void)
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
   //bluetooth_connection_service_subscribe(BlutoothConnectionHandler);
 
+  app_message_register_inbox_received(inbox_received_callback);
+  app_message_register_inbox_dropped(inbox_dropped_callback);
+  app_message_register_outbox_failed(outbox_failed_callback);
+  app_message_register_outbox_sent(outbox_sent_callback);
+
+  #ifdef PBL_PLATFORM_APLITE
+  app_message_open(64, 64);
+  #else
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  #endif
 
   update_time();
 }
@@ -1066,8 +1072,6 @@ static void deinit(void)
   window_destroy(window);
   tick_timer_service_unsubscribe();
   //bluetooth_connection_service_unsubscribe();
-
-  app_sync_deinit(&s_sync);
 }
 
 int main(void) 

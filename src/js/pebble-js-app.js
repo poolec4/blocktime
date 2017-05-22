@@ -39,11 +39,12 @@ function fetchWeather(pos) {
         var temperature;
         console.log("Temp_units " + temp_units);
 
-        if (temp_units === 0)
+        if (temp_units == 0)
         {
           temperature = Math.round(json.main.temp - 273.15);
         }
-        else
+        
+        if(temp_units == 1)
         {
           temperature = Math.round((json.main.temp - 273.15) * 1.8 + 32);
         }
@@ -75,7 +76,6 @@ function locationSuccess(pos) {
   console.log(" ** Location Success **");
   fetchWeather(pos);
 }
-
 
 function locationError(err){
   console.log("Error reuesting location.");
@@ -135,8 +135,8 @@ Pebble.addEventListener("webviewclosed", function(e){
 //start to listen for the watchface to be opened
 Pebble.addEventListener('ready', function(e) {
     console.log("PebbleKit JS ready!");
-    window.navigator.geolocation.getCurrentPosition(locationSuccess, locationError,locationOptions);
     console.log(e.type);
+    Pebble.sendAppMessage({'KEY_JSREADY': 1});
 });
 
 //listen for when a message is received from the app
@@ -146,11 +146,11 @@ Pebble.addEventListener('appmessage', function(e) {
 
     console.log('Received appmessage: ' + JSON.stringify(e.payload));
     
-    temp_units = JSON.stringify(e.payload.unit);
-    location_status = JSON.stringify(e.payload.location);
-    zip_code = JSON.stringify(e.payload.zip_code);
-    latitude = JSON.stringify(e.payload.latitude);
-    longitude = JSON.stringify(e.payload.longitude);
+    temp_units = JSON.stringify(e.payload.KEY_UNIT);
+    location_status = JSON.stringify(e.payload.KEY_LOCATION);
+    zip_code = JSON.stringify(e.payload.KEY_ZIP_CODE);
+    latitude = JSON.stringify(e.payload.KEY_LATITUDE);
+    longitude = JSON.stringify(e.payload.KEY_LONGITUDE);
 
     window.navigator.geolocation.getCurrentPosition(locationSuccess, locationError,locationOptions);
 

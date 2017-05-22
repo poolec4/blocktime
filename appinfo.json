@@ -17,7 +17,8 @@
     "KEY_SLEEP": 13,
     "KEY_SLEEP_START": 14,
     "KEY_SLEEP_END": 15,
-    "KEY_BATTERY_METER": 16
+    "KEY_BATTERY_METER": 16,
+    "KEY_JSREADY": 17
     },
     "capabilities": 
     [
@@ -28,8 +29,8 @@
     "companyName": "CDev",
     "shortName": "Block Time",
     "longName": "Block Time",
-    "versionLabel": "2.0",
-    "sdkVersion": "3",
+    "versionLabel": "3.0",
+    "sdkVersion": "2",
     "targetPlatforms": ["aplite", "basalt", "diorite"],
     "watchapp": {
       "watchface": true
